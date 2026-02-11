@@ -2,6 +2,14 @@
 
 A fast-paced, roguelike wave survival game where you play as a powerful Wizard defending against endless hordes of Goblins, Ogres, and Trolls across multiple elemental biomes.
 
+## 🎮 Download & Play (Easiest Way)
+
+You don't need Python installed! Just download the game and play:
+
+1.  Go to the **[Releases Page](https://github.com/jordi1203/wizard-vs-ogres/releases)** (You need to create a release first, see below).
+2.  Download the `WizardVsOgres.exe` file.
+3.  Double-click to play!
+
 ## Key Features
 
 *   **Dynamic Combat**: Use your magic wand to blast enemies, with upgrades for multishot, piercing, and damage.
