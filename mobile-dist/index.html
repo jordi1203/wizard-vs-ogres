@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Wizard vs Ogres: Mobile</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            overflow: hidden;
+            touch-action: none;
+            font-family: Arial, sans-serif;
+        }
+
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .touch-control {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            pointer-events: auto;
+        }
+
+        #joystick-area {
+            bottom: 20px;
+            left: 20px;
+            width: 150px;
+            height: 150px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+        }
+
+        #joystick-knob {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            top: 50px;
+            left: 50px;
+        }
+
+        #btn-jump {
+            bottom: 40px;
+            right: 20px;
+            width: 80px;
+            height: 80px;
+            background: rgba(0, 255, 0, 0.3);
+            border: 2px solid #0f0;
+        }
+
+        #btn-shoot {
+            bottom: 140px;
+            right: 60px;
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 0, 0, 0.3);
+            border: 2px solid #f00;
+        }
+
+        #btn-skill-tornado {
+            bottom: 250px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background: rgba(0, 255, 255, 0.3);
+            display: none;
+        }
+
+        #btn-skill-dragon {
+            bottom: 320px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 100, 0, 0.3);
+            display: none;
+        }
+
+        /* Force landscape */
+        @media screen and (orientation: portrait) {
+
+            #gameCanvas,
+            #ui-overlay {
+                display: none;
+            }
+
+            #rotate-message {
+                display: flex;
+            }
+        }
+
+        #rotate-message {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            color: #fff;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            text-align: center;
+            z-index: 9999;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="ui-overlay">
+        <!-- Touch Controls -->
+        <div id="joystick-area" class="touch-control">
+            <div id="joystick-knob"></div>
+        </div>
+
+        <div id="btn-jump" class="touch-control">
+            <div class="label">JUMP</div>
+        </div>
+        <div id="btn-shoot" class="touch-control">
+            <div class="label">FIRE</div>
+        </div>
+
+        <div id="btn-skill-tornado" class="touch-control">
+            <div class="label">WIND</div>
+        </div>
+        <div id="btn-skill-dragon" class="touch-control">
+            <div class="label">ULT</div>
+        </div>
+    </div>
+
+    <div id="rotate-message">Please rotate your device to LANDSCAPE to play!</div>
+    <script src="game.js"></script>
+</body>
+
+</html>
