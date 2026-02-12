@@ -30,20 +30,23 @@ A fast-paced, action-packed 2D platformer/roguelite where you play as a powerful
 | **Dragon** | `R` (Unlockable) |
 | **Pause/Menu** | `ESC` |
 
-## 🚀 How to Run
+## 🚀 How to Play (No Installation Needed!)
 
-1.  **Download the Game**:
-    -   **Option A (Git)**: Run `git clone https://github.com/jordi1203/wizard-vs-ogres.git`
-    -   **Option B (Zip)**: Click the green **Code** button on GitHub, select **Download ZIP**, and extract simple folder.
-2.  **Install Python**: Ensure you have [Python](https://www.python.org/downloads/) installed.
-3.  **Install Dependencies**:
-    ```bash
-    pip install pygame
-    ```
-4.  **Run the Game**:
-    ```bash
-    python main.py
-    ```
+1.  **Download**:
+    -   Go to the **Releases** section on the right side of this GitHub page.
+    -   Download the **WizardVsOgres.exe** file (or the zip folder).
+2.  **Play**:
+    -   Just double-click `WizardVsOgres.exe` to start!
+    -   (Note: Windows might warn you about an unrecognized app because I'm an indie dev. Click "More Info" -> "Run Anyway" if that happens).
+
+---
+
+### 💻 For Developers (Source Code)
+
+If you want to modify the code:
+1.  Clone repo: `git clone https://github.com/jordi1203/wizard-vs-ogres.git`
+2.  Install Python & Dependencies: `pip install pygame`
+3.  Run: `python main.py`
 
 ## 🛠️ Development
 
