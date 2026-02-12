@@ -132,7 +132,8 @@ def draw_scaled_wizard(surface, x, y, scale=1.0):
     
     # Draw at center of temp surface
     # Feet at 280 (leaving room). Center X at 150.
-    draw_wizard(s, 150, 280, facing_right=True, is_casting=True)
+    # Wand Color: RED FIRE (255, 69, 0)
+    draw_wizard(s, 150, 280, facing_right=True, is_casting=True, wand_color=(255, 69, 0))
     
     if scale != 1.0:
         s = pygame.transform.scale(s, (int(w*scale), int(h*scale)))
