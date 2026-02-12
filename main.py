@@ -171,57 +171,63 @@ def kill_enemy(enemy):
 
 def draw_menu(surface):
     # 1. Background & Atmosphere
+    # Fill specific sky color first to prevent black voids if assets fail
+    surface.fill((20, 10, 30))
     draw_background_scenery(surface, "FOREST", SCREEN_WIDTH, SCREEN_HEIGHT)
     
     ground_y = SCREEN_HEIGHT - 80
     
-    # Dark Vignette
-    s_grad = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
-    for i in range(SCREEN_HEIGHT):
-        alpha = 0
-        if i < 300: alpha = int(150 * (1 - i/300)) 
-        if i > SCREEN_HEIGHT - 300: alpha = int(180 * ((i - (SCREEN_HEIGHT-300))/300))
-        if alpha > 0:
-            pygame.draw.line(s_grad, (0, 0, 20), (0, i), (SCREEN_WIDTH, i))
-    surface.blit(s_grad, (0,0))
+    # Subtle Overlay (just to unify colors, not hide them)
+    s_overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+    s_overlay.fill((10, 20, 30, 80)) # Blue-ish tint, low alpha
+    surface.blit(s_overlay, (0,0))
 
     cx = SCREEN_WIDTH // 2
+    cy = SCREEN_HEIGHT // 2
     
-    # 2. Main Character: The Wizard (High Quality Scale)
-    # Using new helper function from assets
-    draw_scaled_wizard(surface, cx, ground_y - 20, scale=2.5)
+    # 2. Hero Character (The Wizard) - LEFT SIDE
+    # Position him at ~25% width
+    wiz_x = int(SCREEN_WIDTH * 0.3)
+    wiz_y = ground_y - 20
+    draw_scaled_wizard(surface, wiz_x, wiz_y, scale=3.0)
     
-    # Magical Particles for "Super Quality" feel
+    # Magical Particles around Wizard
     t = pygame.time.get_ticks()
-    random.seed(t // 50) # Stable seed per frame for visual noise or just random?
-    # Actually just random sparkles around him
-    for _ in range(5):
-        sx = cx + random.randint(-150, 150)
-        sy = ground_y - 20 - random.randint(50, 400)
-        # Pulse alpha
-        alpha = random.randint(100, 255)
-        # Draw star
-        s_part = pygame.Surface((10, 10), pygame.SRCALPHA)
-        pygame.draw.circle(s_part, (255, 255, 200, alpha), (5, 5), random.randint(1, 3))
+    random.seed(t // 50) 
+    for _ in range(8):
+        sx = wiz_x + random.randint(-100, 100)
+        sy = wiz_y - 200 - random.randint(0, 300)
+        alpha = random.randint(150, 255)
+        radius = random.randint(2, 4)
+        if random.random() < 0.2: radius += 2 # Occasional big spark
+        
+        s_part = pygame.Surface((radius*2, radius*2), pygame.SRCALPHA)
+        pygame.draw.circle(s_part, (255, 230, 150, alpha), (radius, radius), radius)
         surface.blit(s_part, (sx, sy))
     
-    # 3. Epic Title
-    title_text = "WIZARD vs OGRES"
-    title_font = pygame.font.SysFont("Verdana", 80, bold=True)
+    # 3. UI Section - RIGHT SIDE
+    ui_center_x = int(SCREEN_WIDTH * 0.7)
     
-    # Shadow/Glow
+    # Epic Title
+    title_text = "WIZARD vs OGRES"
+    # Use a nice bold font
+    title_font = pygame.font.SysFont("Verdana", 60, bold=True)
+    
+    # Shadow
     shad = title_font.render(title_text, True, (0, 0, 0))
-    surface.blit(shad, shad.get_rect(center=(cx+4, 154)))
+    shad_rect = shad.get_rect(center=(ui_center_x + 4, 104))
+    surface.blit(shad, shad_rect)
     
     # Main Title
-    tit = title_font.render(title_text, True, (255, 215, 0)) 
-    surface.blit(tit, tit.get_rect(center=(cx, 150)))
+    tit = title_font.render(title_text, True, (255, 200, 50)) 
+    tit_rect = tit.get_rect(center=(ui_center_x, 100))
+    surface.blit(tit, tit_rect)
     
-    sub_font = pygame.font.SysFont("Arial", 30, italic=True)
-    sub = sub_font.render("- ULTIMATE EDITION -", True, (100, 200, 255))
-    surface.blit(sub, sub.get_rect(center=(cx, 210)))
+    sub_font = pygame.font.SysFont("Arial", 24, italic=True)
+    sub = sub_font.render("- ENCHANTED FOREST EDITION -", True, (150, 220, 255))
+    surface.blit(sub, sub.get_rect(center=(ui_center_x, 150)))
 
-    # 4. Menu Options
+    # 4. Menu Options (Right Side)
     mouse_pos = pygame.mouse.get_pos()
     menu_opts = [
         {"text": "PLAY GAME", "key": "ENTER", "action": "START"},
@@ -229,46 +235,43 @@ def draw_menu(surface):
         {"text": "EXIT", "key": "Q", "action": "QUIT"}
     ]
     
-    start_y = 380 # Lowered slightly to not overlap wizard head too much
-    btn_w, btn_h = 300, 60
-    
-    # Draw buttons on sides? No, center is fine, maybe semi-transparent over wizard?
-    # Or move wizard to left and menu to right?
-    # User said "solo este el mago ... en bosque".
-    # Center composition is strongest.
+    start_y = 250
+    btn_w, btn_h = 280, 55
+    spacing = 15
     
     for i, opt in enumerate(menu_opts):
-        btn_y = start_y + i * (btn_h + 20)
-        rect = pygame.Rect(cx - btn_w//2, btn_y, btn_w, btn_h)
+        btn_y = start_y + i * (btn_h + spacing)
+        rect = pygame.Rect(ui_center_x - btn_w//2, btn_y, btn_w, btn_h)
         
         is_hover = rect.collidepoint(mouse_pos)
         
-        # Style - Darker background for contrast against wizard
-        bg_col = (10, 10, 20, 220) if not is_hover else (40, 40, 80, 240)
-        border_col = (100, 100, 200) if not is_hover else (255, 255, 0)
+        # Style
+        # Glass morphism style
+        bg_col = (10, 10, 20, 180) if not is_hover else (50, 50, 90, 220)
+        border_col = (100, 100, 150) if not is_hover else (255, 220, 100)
         
         # Draw Button Box
         s_btn = pygame.Surface((btn_w, btn_h), pygame.SRCALPHA)
-        pygame.draw.rect(s_btn, bg_col, (0,0,btn_w,btn_h), border_radius=15)
-        pygame.draw.rect(s_btn, border_col, (0,0,btn_w,btn_h), 3, border_radius=15)
+        pygame.draw.rect(s_btn, bg_col, (0,0,btn_w,btn_h), border_radius=12)
+        pygame.draw.rect(s_btn, border_col, (0,0,btn_w,btn_h), 2, border_radius=12)
         surface.blit(s_btn, rect)
         
         # Text
-        txt_col = (200, 200, 200) if not is_hover else (255, 255, 255)
+        txt_col = (220, 220, 220) if not is_hover else (255, 255, 255)
         mtxt = shop_font.render(opt["text"], True, txt_col)
         surface.blit(mtxt, mtxt.get_rect(center=rect.center))
         
-        hint = small_font.render(f"[{opt['key']}]", True, (150, 150, 150))
-        surface.blit(hint, (rect.right + 15, rect.centery - 10))
+        hint = small_font.render(f"[{opt['key']}]", True, (120, 120, 120))
+        surface.blit(hint, (rect.right + 10, rect.centery - 10))
 
     # 5. Bottom Stats Bar
     bar_y = SCREEN_HEIGHT - 40
-    pygame.draw.rect(surface, (0,0,0,180), (0, bar_y, SCREEN_WIDTH, 40))
+    pygame.draw.rect(surface, (0,0,0,150), (0, bar_y, SCREEN_WIDTH, 40))
     
-    c_txt = small_font.render(f"YOUR WEALTH: {TOTAL_COINS} Gold", True, GOLD)
+    c_txt = small_font.render(f"GOLD: {TOTAL_COINS}", True, GOLD)
     surface.blit(c_txt, (20, bar_y + 8))
     
-    ver = small_font.render("v2.1 (Ultra)", True, GRAY)
+    ver = small_font.render("v2.2 (Forest)", True, GRAY)
     surface.blit(ver, (SCREEN_WIDTH - 120, bar_y + 8))
 
 def draw_shop(surface):
@@ -638,9 +641,10 @@ while running:
         draw_menu(screen)
         
         # Logic for buttons (must match draw_menu rects)
-        cx = SCREEN_WIDTH // 2
-        start_y = 380
-        btn_w, btn_h = 300, 60
+        ui_center_x = int(SCREEN_WIDTH * 0.7)
+        start_y = 250
+        btn_w, btn_h = 280, 55
+        spacing = 15
         
         # Check clicks
         mouse_pos = pygame.mouse.get_pos()
@@ -651,18 +655,18 @@ while running:
         
         # Reconstruct rects to check collisions
         # 0: PLAY
-        rect_play = pygame.Rect(cx - btn_w//2, start_y, btn_w, btn_h)
+        rect_play = pygame.Rect(ui_center_x - btn_w//2, start_y, btn_w, btn_h)
         if rect_play.collidepoint(mouse_pos) and click:
             reset_run()
             
         # 1: SHOP
-        rect_shop = pygame.Rect(cx - btn_w//2, start_y + (btn_h + 20), btn_w, btn_h)
+        rect_shop = pygame.Rect(ui_center_x - btn_w//2, start_y + (btn_h + spacing), btn_w, btn_h)
         if rect_shop.collidepoint(mouse_pos) and click:
             shop_return_target = "MENU"
             game_state = "SHOP"
             
         # 2: EXIT
-        rect_exit = pygame.Rect(cx - btn_w//2, start_y + 2*(btn_h + 20), btn_w, btn_h)
+        rect_exit = pygame.Rect(ui_center_x - btn_w//2, start_y + 2*(btn_h + spacing), btn_w, btn_h)
         if rect_exit.collidepoint(mouse_pos) and click:
             running = False
 
