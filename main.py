@@ -170,21 +170,73 @@ def kill_enemy(enemy):
 # --- UI STATES ---
 
 def draw_menu(surface):
-    surface.fill(BLACK)
+    # 1. Dynamic Background
+    draw_background_scenery(surface, "FOREST", SCREEN_WIDTH, SCREEN_HEIGHT)
     
-    title = font.render(f"WIZARD vs OGRES", True, CYAN)
-    start_txt = shop_font.render("Press [ENTER] to Start Game", True, WHITE)
-    shop_txt = shop_font.render("Press [S] to Open Shop", True, GOLD)
-    quit_txt = shop_font.render("Press [Q] to Quit", True, RED)
+    # 2. Dark Overlay for contest
+    s = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+    s.fill((0, 0, 0, 150)) # Darken background
+    surface.blit(s, (0,0))
     
-    coins_txt = small_font.render(f"Coins: {TOTAL_COINS}", True, GOLD)
-
     cx, cy = SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2
+    t = pygame.time.get_ticks()
     
-    surface.blit(title, title.get_rect(center=(cx, cy - 100)))
-    surface.blit(start_txt, start_txt.get_rect(center=(cx, cy)))
-    surface.blit(shop_txt, shop_txt.get_rect(center=(cx, cy + 50)))
-    surface.blit(quit_txt, quit_txt.get_rect(center=(cx, cy + 100)))
+    # 3. Draw Characters (Face-Off)
+    # Wizard on Left
+    draw_wizard(surface, cx - 300, cy + 100, facing_right=True)
+    # Ogre on Right (Animated)
+    draw_ogre(surface, cx + 300, cy + 100, facing_right=False, scale=1.2, tick=t)
+    
+    # 4. Title (Shadowed & Pulsing)
+    title_scale = 1.0 + math.sin(t / 500) * 0.05
+    # Create large font for title if not exists (using scale on existing or new font)
+    title_font = pygame.font.SysFont("Arial", 64, bold=True)
+    
+    title_text = "WIZARD vs OGRES"
+    
+    # Shadow
+    shad = title_font.render(title_text, True, (0, 0, 0))
+    shad_rect = shad.get_rect(center=(cx + 5, cy - 150 + 5))
+    surface.blit(shad, shad_rect)
+    
+    # Main Title
+    tit = title_font.render(title_text, True, (255, 200, 50)) # Gold/Orange
+    tit_rect = tit.get_rect(center=(cx, cy - 150))
+    surface.blit(tit, tit_rect)
+    
+    sub_tit = small_font.render("Ultimate Edition", True, CYAN)
+    surface.blit(sub_tit, sub_tit.get_rect(center=(cx, cy - 100)))
+
+    # 5. Menu Options
+    opts_y = cy + 20
+    spacing = 60
+    
+    # Helper to draw menu item
+    def draw_item(text, y, color, key_hint):
+        # Hover effect (simulated by pulsing sine wave for all, or selected?)
+        # Since we use keyboard, let's just make them nice.
+        txt = shop_font.render(text, True, color)
+        rect = txt.get_rect(center=(cx, y))
+        
+        # Background box for text
+        bg_rect = rect.inflate(40, 20)
+        pygame.draw.rect(surface, (0, 0, 0, 100), bg_rect, border_radius=10)
+        pygame.draw.rect(surface, color, bg_rect, 2, border_radius=10)
+        
+        surface.blit(txt, rect)
+        
+        # Key hint small
+        hint = small_font.render(key_hint, True, GRAY)
+        hint_rect = hint.get_rect(midleft=(rect.right + 30, y))
+        surface.blit(hint, hint_rect)
+
+    draw_item("START GAME", opts_y, GREEN, "[ENTER]")
+    draw_item("MAGIC SHOP", opts_y + spacing, GOLD, "[S]")
+    draw_item("QUIT", opts_y + spacing * 2, RED, "[Q]")
+    
+    # 6. User Stats
+    coins_txt = small_font.render(f"Total Coins: {TOTAL_COINS}", True, GOLD)
+    pygame.draw.rect(surface, (0,0,0,150), (10, 10, coins_txt.get_width()+20, 40), border_radius=5)
     surface.blit(coins_txt, (20, 20))
 
 def draw_shop(surface):
