@@ -511,12 +511,14 @@ def draw_cards_ui(surface, events):
                 current_wave += 1
                 enemies_killed_in_wave = 0
                 total_enemies_spawned_in_wave = 0
+                # Next wave
+                current_wave += 1
+                enemies_killed_in_wave = 0
+                total_enemies_spawned_in_wave = 0
                 if current_wave > 2: current_biome = "ICE"
                 if current_wave > 4: current_biome = "VOLCANO"
                 
-                # Go to Shop instead of Playing immediately
-                shop_return_target = "PLAYING"
-                game_state = "SHOP"
+                game_state = "PLAYING"
                 
                 pygame.time.wait(200)
                 return
@@ -529,6 +531,10 @@ def draw_cards_ui(surface, events):
         
         surface.blit(name, name.get_rect(center=rect.center))
         surface.blit(desc, desc.get_rect(midtop=(rect.centerx, rect.centery + 30)))
+
+    # Draw Shop Hint
+    shop_hint = shop_font.render("Press [S] to Open Shop", True, GOLD)
+    surface.blit(shop_hint, shop_hint.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT - 50)))
 
 # --- MAIN LOOPS ---
 spawn_timer = 0
@@ -748,6 +754,11 @@ while running:
 
     elif game_state == "CARD_SELECT":
         draw_cards_ui(screen, events)
+        
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_s]:
+             shop_return_target = "CARD_SELECT"
+             game_state = "SHOP"
         
     elif game_state in ["GAME_OVER", "VICTORY"]:
         screen.fill(BLACK)
