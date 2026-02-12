@@ -125,124 +125,233 @@ def draw_wizard(surface, x, y, facing_right, is_casting=False, wand_color=(255, 
 
     return (top_x, top_y) # Exact tip position
 
-def draw_ogre(surface, x, y, facing_right, scale=1.0):
+def draw_ogre(surface, x, y, facing_right, scale=1.0, tick=0):
     """Draws a Green Ogre."""
     _draw_monster_base(surface, x, y, facing_right, scale, 
                        skin_color=(100, 140, 60), 
                        outfit_color=(139, 69, 19), 
-                       weapon="CLUB")
+                       weapon="CLUB", tick=tick)
 
-def draw_goblin(surface, x, y, facing_right, scale=0.8):
+def draw_goblin(surface, x, y, facing_right, scale=0.8, tick=0):
     """Draws a small, fast Goblin."""
     _draw_monster_base(surface, x, y, facing_right, scale, 
                        skin_color=(150, 200, 50), 
                        outfit_color=(100, 50, 50), 
                        weapon="DAGGER",
-                       is_goblin=True)
+                       is_goblin=True, tick=tick)
 
-def draw_troll(surface, x, y, facing_right, scale=1.3):
+def draw_troll(surface, x, y, facing_right, scale=1.3, tick=0):
     """Draws a large, regenerating Troll."""
     _draw_monster_base(surface, x, y, facing_right, scale, 
                        skin_color=(100, 100, 120), 
                        outfit_color=(50, 50, 50), 
-                       weapon="ROCK")
+                       weapon="ROCK", tick=tick)
 
-def _draw_monster_base(surface, x, y, facing_right, scale, skin_color, outfit_color, weapon, is_goblin=False):
+def _draw_monster_base(surface, x, y, facing_right, scale, skin_color, outfit_color, weapon, is_goblin=False, tick=0):
     direction = 1 if facing_right else -1
     
-    # Virtual Surface
-    w, h = 140, 140
+    # Increase canvas size for more detail and "hulking" look
+    w, h = 300, 300 
     s = pygame.Surface((w, h), pygame.SRCALPHA)
+    cx, cy = w//2, h - 10
     
-    cx, cy = w//2, h
+    # --- ANIMATION CALCULATIONS ---
+    # Walk Cycle: Sin wave for legs, Abs(Sin) for bounce
+    walk_speed = tick / 150 # Speed of stride
+    stride_len = 12 if not is_goblin else 8
     
-    # --- Body ---
-    # Legs (Thicker for Ogres)
-    leg_w = 15 if not is_goblin else 12
-    pygame.draw.rect(s, outfit_color, (cx - 15, cy - 35, leg_w, 35))
-    pygame.draw.rect(s, outfit_color, (cx + 5, cy - 35, leg_w, 35))
+    # Leg offsets (Counter-phase)
+    leg_l_off = math.sin(walk_speed) * stride_len
+    leg_r_off = math.sin(walk_speed + math.pi) * stride_len
     
-    # Torso (Muscular)
-    body_h = 50 if not is_goblin else 30
-    body_w = 50 if not is_goblin else 40
-    pygame.draw.rect(s, skin_color, (cx - 25, cy - 35 - body_h, body_w, body_h), border_radius=8)
+    # Body bob (Bounce up and down)
+    bob_y = abs(math.sin(walk_speed)) * 5
     
-    # Armor/Vest (Jagged)
-    pygame.draw.polygon(s, outfit_color, [
-        (cx - 25, cy - 35 - body_h), 
-        (cx + 25, cy - 35 - body_h), 
-        (cx + 15, cy - 35 - body_h + 20),
-        (cx, cy - 35 - body_h + 30),
-        (cx - 15, cy - 35 - body_h + 20)
-    ])
-    
-    # Shoulder Pads (Ogre Only)
-    if not is_goblin:
-        pygame.draw.circle(s, (80, 80, 80), (cx - 25, cy - 35 - body_h + 5), 12)
-        pygame.draw.circle(s, (80, 80, 80), (cx + 25, cy - 35 - body_h + 5), 12)
-        # Spikes on shoulder
-        pygame.draw.line(s, (200, 200, 200), (cx - 25, cy - 35 - body_h), (cx - 35, cy - 35 - body_h - 10), 3)
-        pygame.draw.line(s, (200, 200, 200), (cx + 25, cy - 35 - body_h), (cx + 35, cy - 35 - body_h - 10), 3)
-    
-    # Head
-    head_y = cy - 35 - body_h - 18
-    head_r = 20 if not is_goblin else 14
-    pygame.draw.circle(s, skin_color, (cx, head_y), head_r)
-    
-    # Details Ogre/Troll
-    if not is_goblin:
-        # War Paint (Red markings)
-        pygame.draw.line(s, (150, 0, 0), (cx-10, head_y-10), (cx-5, head_y+5), 3)
-        pygame.draw.line(s, (150, 0, 0), (cx+10, head_y-10), (cx+5, head_y+5), 3)
-        
-        # Jaw/Teeth (Underbit)
-        pygame.draw.rect(s, (255, 255, 200), (cx - 8, head_y + 10, 4, 8)) # Left Tusk
-        pygame.draw.rect(s, (255, 255, 200), (cx + 4, head_y + 10, 4, 8)) # Right Tusk
+    # Adjust Y base with bob
+    cy -= bob_y
 
-    # Ears (Pointy & Large)
-    ear_len = 15
-    ear_l = [(cx - head_r + 5, head_y), (cx - head_r - ear_len, head_y - 10), (cx - head_r, head_y - 10)]
-    ear_r = [(cx + head_r - 5, head_y), (cx + head_r + ear_len, head_y - 10), (cx + head_r, head_y - 10)]
-    pygame.draw.polygon(s, skin_color, ear_l)
-    pygame.draw.polygon(s, skin_color, ear_r)
+    # --- Color Palette Generation (Shading) ---
+    def darken(c, amount=40): return (max(0, c[0]-amount), max(0, c[1]-amount), max(0, c[2]-amount))
+    def lighten(c, amount=40): return (min(255, c[0]+amount), min(255, c[1]+amount), min(255, c[2]+amount))
     
-    # Face
-    eye_x = cx + (8 * direction)
+    skin_shadow = darken(skin_color)
+    skin_highlight = lighten(skin_color, 20)
+    outfit_shadow = darken(outfit_color)
+    outfit_highlight = lighten(outfit_color, 30)
+
+    # --- ANATOMY & POSING ---
+    leg_w = 26 if not is_goblin else 16
+    leg_h = 45 if not is_goblin else 35
+    
+    # 1. Back Leg (Animated)
+    bx = cx - 15 - leg_w//2 + (leg_l_off * direction) # Offset by anim
+    pygame.draw.rect(s, skin_shadow, (bx, cy - leg_h, leg_w, leg_h))
+    # Boot/Foot Back
+    pygame.draw.rect(s, outfit_color, (bx - 5, cy - 12, leg_w + 10, 12))
+
+    # 2. Front Leg (Animated)
+    fx = cx + 10 - leg_w//2 + (leg_r_off * direction)
+    pygame.draw.rect(s, skin_color, (fx, cy - leg_h, leg_w, leg_h))
+    # Muscle shading on leg
+    pygame.draw.rect(s, skin_shadow, (fx, cy - leg_h, 6, leg_h)) 
+    # Boot/Foot Front
+    pygame.draw.rect(s, outfit_color, (fx - 5, cy - 12, leg_w + 10, 12))
+    # Boot Detail
+    pygame.draw.rect(s, outfit_highlight, (fx, cy - 12, 5, 12))
+
+    # 3. Torso (Massive Trapezoid)
+    body_y_bottom = cy - leg_h
+    body_height = 70 if not is_goblin else 45
+    body_y_top = body_y_bottom - body_height
+    
+    waist_w = 50 if not is_goblin else 30
+    shoulder_w = 90 if not is_goblin else 50
+    
+    torso_points = [
+        (cx - waist_w//2, body_y_bottom),           # Waist L
+        (cx + waist_w//2, body_y_bottom),           # Waist R
+        (cx + shoulder_w//2 - 5, body_y_top),       # Shoulder R
+        (cx - shoulder_w//2 + 5, body_y_top)        # Shoulder L
+    ]
+    pygame.draw.polygon(s, skin_color, torso_points)
+    
+    # Abs/Pecs Definition
+    # Central line
+    pygame.draw.line(s, skin_shadow, (cx, body_y_top + 20), (cx, body_y_bottom - 10), 2)
+    # Pecs
+    pygame.draw.arc(s, skin_shadow, (cx - 25, body_y_top + 15, 25, 15), 3.14, 0, 2)
+    pygame.draw.arc(s, skin_shadow, (cx, body_y_top + 15, 25, 15), 3.14, 0, 2)
+    
+    # 4. Loincloth / Belt (Detailed)
+    belt_h = 25
+    pygame.draw.rect(s, outfit_color, (cx - waist_w//2 - 5, body_y_bottom - 10, waist_w + 10, belt_h))
+    # Fur texture
+    for i in range(0, waist_w + 10, 5):
+        pygame.draw.line(s, outfit_shadow, (cx - waist_w//2 - 5 + i, body_y_bottom - 10), (cx - waist_w//2 - 5 + i, body_y_bottom + 15), 1)
+    
+    # Skull Buckle
+    if not is_goblin:
+        # Cranium
+        pygame.draw.circle(s, (220, 220, 220), (cx, body_y_bottom), 9)
+        # Eye sockets
+        pygame.draw.circle(s, (20, 0, 0), (cx - 3, body_y_bottom - 1), 2)
+        pygame.draw.circle(s, (20, 0, 0), (cx + 3, body_y_bottom - 1), 2)
+        # Teeth
+        pygame.draw.line(s, (200, 200, 200), (cx-5, body_y_bottom+6), (cx+5, body_y_bottom+6), 3)
+
+    # 5. Head
+    head_size = 24 if not is_goblin else 18
+    # Head bobs slightly less than body for stability focus
+    head_y = body_y_top - head_size + 10 
+    head_x = cx
+    
+    # Thick Neck
+    pygame.draw.rect(s, skin_shadow, (cx - 12, body_y_top - 5, 24, 15))
+    
+    # Face Shape (Square Jaw)
+    pygame.draw.circle(s, skin_color, (head_x, head_y), head_size)
+    pygame.draw.rect(s, skin_color, (head_x - head_size + 2, head_y, head_size*2 - 4, head_size), border_radius=5)
+    
+    # Shading under chin
+    pygame.draw.rect(s, skin_shadow, (head_x - head_size + 5, head_y + head_size - 4, head_size*2 - 10, 4))
+
+    # Facial Features
+    eye_y = head_y - 2
+    eye_off = 9
+    
+    # Brows (Angry V)
+    pygame.draw.line(s, (30, 20, 10), (head_x - 15, eye_y - 6), (head_x, eye_y), 3)
+    pygame.draw.line(s, (30, 20, 10), (head_x + 15, eye_y - 6), (head_x, eye_y), 3)
+    
     # Glowing Eyes
-    pygame.draw.circle(s, (255, 50, 0), (eye_x, head_y - 5), 4)
-    pygame.draw.circle(s, (255, 200, 0), (eye_x, head_y - 5), 1) # Pupil
+    pygame.draw.circle(s, (255, 0, 0), (head_x + eye_off * direction, eye_y), 4) # Main Eye
+    pygame.draw.circle(s, (255, 200, 100), (head_x + eye_off * direction, eye_y), 1) # Pupil glare
     
-    # Mouth (Angry line)
-    pygame.draw.line(s, (20, 0, 0), (cx - 5, head_y + 8), (cx + 5 + 5*direction, head_y + 8), 3)
+    # Tusks (Protruding Up)
+    if not is_goblin:
+        tusk_color = (240, 240, 220)
+        # Left
+        pygame.draw.polygon(s, tusk_color, [(head_x-10, head_y+15), (head_x-10, head_y+5), (head_x-14, head_y+8)])
+        # Right
+        pygame.draw.polygon(s, tusk_color, [(head_x+10, head_y+15), (head_x+10, head_y+5), (head_x+14, head_y+8)])
     
-    # --- Weapon ---
-    hand_x = cx + (30 * direction)
-    hand_y = cy - 60
-    # Arm (Thick muscular)
-    pygame.draw.line(s, skin_color, (cx + 20*direction, cy - 60), (hand_x, hand_y), 8)
+    # Ears (Pointed)
+    ear_y = head_y - 5
+    pygame.draw.polygon(s, skin_shadow, [(head_x-head_size, ear_y), (head_x-head_size-15, ear_y-10), (head_x-head_size, ear_y+5)])
+    pygame.draw.polygon(s, skin_shadow, [(head_x+head_size, ear_y), (head_x+head_size+15, ear_y-10), (head_x+head_size, ear_y+5)])
+
+    # 6. Arms & Shoulders
     
+    # Spiked Shoulder Pads
+    if not is_goblin:
+        pad_size = 20
+        # Draw Left Pad
+        pygame.draw.circle(s, (50, 50, 60), (cx - shoulder_w//2, body_y_top + 5), pad_size)
+        pygame.draw.line(s, (200, 200, 200), (cx - shoulder_w//2, body_y_top), (cx - shoulder_w//2 - 10, body_y_top - 15), 4) # Spike
+        # Draw Right Pad
+        pygame.draw.circle(s, (50, 50, 60), (cx + shoulder_w//2, body_y_top + 5), pad_size)
+        pygame.draw.line(s, (200, 200, 200), (cx + shoulder_w//2, body_y_top), (cx + shoulder_w//2 + 10, body_y_top - 15), 4) # Spike
+
+    # Back Arm
+    pygame.draw.line(s, skin_shadow, (cx - shoulder_w//2, body_y_top + 10), (cx - shoulder_w//2, body_y_top + 50), 18)
+    
+    # Front Arm (Holding Weapon)
+    # Shoulder joint
+    arm_start_x = cx + shoulder_w//2 - 5 * direction
+    arm_start_y = body_y_top + 10
+    
+    # Hand pos (Animated slightly with walk)
+    hand_bob = math.sin(walk_speed * 2) * 2
+    hand_x = arm_start_x + (40 * direction)
+    hand_y = arm_start_y + 35 + hand_bob
+    
+    # Bicep/Forearm (Two segments for muscle look)
+    # Upper
+    pygame.draw.line(s, skin_color, (arm_start_x, arm_start_y), (arm_start_x + 10*direction, arm_start_y + 20), 18)
+    # Lower
+    pygame.draw.line(s, skin_color, (arm_start_x + 10*direction, arm_start_y + 20), (hand_x, hand_y), 15)
+    
+    # 7. Weapon Rendering (In Front of hand)
     if weapon == "CLUB":
-        # Massive Spiked Club
-        end_x = hand_x + (20 * direction)
-        end_y = hand_y - 50
+        stick_len = 90 # Longer Stick so grip looks natural
+        
+        # Grip Point: 
+        # Before: end_y was way up, handle drawn from hand to end.
+        # Fix: Draw FULL stick, passing through hand.
+        # Top of stick (head)
+        top_x = hand_x + (40 * direction)
+        top_y = hand_y - 70 
+        
+        # Bottom of stick (pommel)
+        bot_x = hand_x - (10 * direction)
+        bot_y = hand_y + 15
+        
         # Handle
-        pygame.draw.line(s, (100, 80, 60), (hand_x, hand_y), (end_x, end_y), 6)
-        # Head (Big blobb)
-        pygame.draw.circle(s, (80, 60, 40), (end_x, end_y), 18)
-        # Spikes
-        pygame.draw.line(s, (200, 200, 200), (end_x-10, end_y), (end_x-18, end_y), 2)
-        pygame.draw.line(s, (200, 200, 200), (end_x+10, end_y), (end_x+18, end_y), 2)
-        pygame.draw.line(s, (200, 200, 200), (end_x, end_y-10), (end_x, end_y-18), 2)
+        pygame.draw.line(s, (100, 70, 30), (bot_x, bot_y), (top_x, top_y), 8)
         
+        # Spiked Head (Massive) at Top
+        head_radius = 28
+        pygame.draw.circle(s, (80, 70, 70), (top_x, top_y), head_radius)
+        # Highlight/Shine
+        pygame.draw.circle(s, (120, 110, 110), (top_x - 5, top_y - 5), 8)
+        
+        # Metal Spikes radiating
+        for angle in range(0, 360, 45):
+             rad = math.radians(angle)
+             sp_x = top_x + math.cos(rad) * (head_radius + 10)
+             sp_y = top_y + math.sin(rad) * (head_radius + 10)
+             pygame.draw.line(s, (220, 220, 220), (top_x, top_y), (sp_x, sp_y), 3)
+
     elif weapon == "DAGGER":
-        end_x = hand_x + (15 * direction) 
-        end_y = hand_y - 15
-        pygame.draw.line(s, (150, 150, 150), (hand_x, hand_y), (end_x, end_y), 4) # Blade
-        pygame.draw.line(s, (100, 50, 0), (hand_x, hand_y), (hand_x+5*direction, hand_y+5), 2) # Hilt
-        
+        tip_x = hand_x + (25 * direction)
+        tip_y = hand_y + 10
+        pygame.draw.line(s, (180, 180, 180), (hand_x, hand_y), (tip_x, tip_y), 8)
+        pygame.draw.line(s, (100, 50, 0), (hand_x, hand_y), (hand_x + 5*direction, hand_y - 5), 5) # Hilt
+
     elif weapon == "ROCK":
-        pygame.draw.circle(s, (80, 80, 80), (hand_x, hand_y - 10), 18)
-        pygame.draw.circle(s, (60, 60, 60), (hand_x-5, hand_y - 12), 5) # Texture
+        pygame.draw.circle(s, (90, 80, 80), (hand_x, hand_y + 15), 28)
+        # Detail
+        pygame.draw.circle(s, (60, 50, 50), (hand_x - 5, hand_y + 10), 8)
 
     # Scale & Blit
     if scale != 1.0:
@@ -250,29 +359,64 @@ def _draw_monster_base(surface, x, y, facing_right, scale, skin_color, outfit_co
     
     surface.blit(s, s.get_rect(midbottom=(x, y)))
 
-def draw_projectile(surface, x, y, color=WHITE, is_multishot=False):
-    """Draws a glowing orb with a magical trail if upgraded."""
+def draw_projectile(surface, x, y, color=WHITE, particles=None, scale=1.0):
+    """Draws a REALISTIC FIREBALL with particle trail."""
     
-    # Trail Effect
-    if is_multishot: # If multishot is active (or just always for style)
-        for i in range(5):
-            tx = x - (i*5) # Simple trail behind
-            ty = y + random.randint(-2, 2)
-            alpha = 150 - (i*30)
-            if alpha > 0:
-                s = pygame.Surface((10, 10), pygame.SRCALPHA)
-                pygame.draw.circle(s, (*color[:3], alpha), (5, 5), 3)
-                surface.blit(s, (tx, ty))
+    # 1. Draw Particles (Trail) - This creates the smoke/fire trail
+    if particles:
+        for p in particles:
+            px, py, vx, vy, life, max_life, size = p
+            
+            # Fade alpha based on life
+            alpha = int((life / max_life) * 200)
+            if alpha <= 0: continue
+            
+            # Color shift: Yellow -> Orange -> Red -> Grey Smoke
+            progress = 1.0 - (life / max_life)
+            
+            if progress < 0.2:
+                r, g, b = (255, 255, 100) # Bright Yellow start
+            elif progress < 0.5:
+                r, g, b = (255, 140, 0)   # Orange Mid
+            elif progress < 0.8:
+                r, g, b = (200, 50, 50)   # Red fade
+            else:
+                r, g, b = (100, 100, 100) # Grey smoke
+                
+            # Draw particle
+            s = pygame.Surface((int(size)*2, int(size)*2), pygame.SRCALPHA)
+            pygame.draw.circle(s, (r, g, b, alpha), (int(size), int(size)), int(size))
+            surface.blit(s, (px - size, py - size))
 
-    # Core Glow
-    r, g, b = color[:3]
-    for radius, alpha in [(12, 100), (8, 200), (4, 255)]:
-        s = pygame.Surface((radius*2, radius*2), pygame.SRCALPHA)
-        pygame.draw.circle(s, (r, g, b, alpha), (radius, radius), radius)
-        surface.blit(s, (x - radius, y - radius))
-        
-    # Bright center
-    pygame.draw.circle(surface, (255, 255, 255), (int(x), int(y)), 2)
+    # 2. Draw Fireball Core (The actual projectile)
+    # Scaled sizes
+    base_radius = 16 * scale
+    
+    # Pulsing size for "burning" effect
+    t = pygame.time.get_ticks()
+    pulse = math.sin(t / 50) * (3 * scale)
+    
+    # Outer Glow (Red/Orange Halo)
+    radius_outer = base_radius + pulse
+    s_glow = pygame.Surface((int(radius_outer*3), int(radius_outer*3)), pygame.SRCALPHA)
+    pygame.draw.circle(s_glow, (255, 69, 0, 80), (int(radius_outer*1.5), int(radius_outer*1.5)), int(radius_outer))
+    surface.blit(s_glow, (x - radius_outer*1.5, y - radius_outer*1.5))
+    
+    # Inner Fire (Orange/Yellow)
+    radius_mid = (10 * scale) + pulse * 0.5
+    pygame.draw.circle(surface, (255, 160, 0), (x, y), int(radius_mid))
+    
+    # Core (White hot center)
+    radius_core = 6 * scale
+    pygame.draw.circle(surface, (255, 255, 220), (x, y), int(radius_core))
+    
+    # 3. Extra "Sparks" orbiting/jittering
+    random.seed(int(t/20))
+    for _ in range(int(3 * scale)):
+        range_s = 15 * scale
+        sx = x + random.uniform(-range_s, range_s)
+        sy = y + random.uniform(-range_s, range_s)
+        pygame.draw.circle(surface, (255, 255, 100), (sx, sy), int(2*scale))
 
 def draw_background_scenery(surface, biome, width, height, scroll_x=0):
     """Draws a HIGH QUALITY background with parallax-like depth and details."""

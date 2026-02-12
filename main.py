@@ -54,10 +54,11 @@ active_effects = [] # For Tornado, Dragon visuals
 # Or: Play -> Get Coins -> Die/Win -> Main Menu -> Shop.
 # Let's go with: Coins are persistent globally. Skills bought are permanent for the user profile.
 
-TOTAL_COINS = 99999
+TOTAL_COINS = 0
 UNLOCKED_ABILITIES = { "LIGHTNING": False, "TORNADO": False, "DRAGON": False}
 SHOP_UPGRADES_STATE = {} # Key: ID, Value: Level
 shop_scroll_y = 0
+shop_return_target = "MENU" # Tracks where to go after closing shop
 gray = (100, 100, 100) # Defined gray here used in draw_shop
 
 def save_data():
@@ -192,7 +193,12 @@ def draw_shop(surface):
     
     title = font.render("MAGIC SHOP", True, MAGENTA)
     coins_txt = font.render(f"Your Coins: {TOTAL_COINS}", True, GOLD)
-    exit_txt = small_font.render("Press [ESC] to Return", True, WHITE)
+    
+    exit_label = "Press [ESC] to Return"
+    if shop_return_target == "PLAYING":
+        exit_label = "Press [ENTER] to Start Next Wave"
+    
+    exit_txt = small_font.render(exit_label, True, WHITE)
     
     # Header Overlay (to cover scrolled items)
     pygame.draw.rect(surface, (20, 20, 30), (0, 0, SCREEN_WIDTH, 130))
@@ -338,7 +344,7 @@ def spawn_enemy_logic():
     
     # Calculate Enemies Per Wave: Harder scaling
     # Was (wave-1)//2. Now just wave count (linear increase)
-    enemies_this_wave = ENEMIES_PER_WAVE_BASE + int(current_wave * 1.2)
+    enemies_this_wave = ENEMIES_PER_WAVE_BASE + int(current_wave * 2.0)
     
     if total_enemies_spawned_in_wave >= enemies_this_wave: return
 
@@ -381,12 +387,13 @@ def spawn_enemy_logic():
     
     if is_strong:
          # Strong enemy health (Harder)
-         health = (player_dmg * 2.2) * diff_mult
+         health = (player_dmg * 4.0) * diff_mult # Signficantly buffed from 2.2
          enemy_type = "GOBLIN" if current_wave % 3 == 0 else "OGRE"
          if current_wave > 5 and random.random() < 0.4: enemy_type = "TROLL"
     else:
          # Weak enemy health (Harder)
-         health = (player_dmg * 1.2) * diff_mult
+         health = (player_dmg * 2.0) * diff_mult # Buffed from 1.2
+
          enemy_type = "GOBLIN" if random.random() < 0.5 else "OGRE"
 
     # Create Enemy
@@ -408,7 +415,7 @@ def generate_upgrades():
         {"type": "HEALTH", "name": "Vitality Boost", "desc": "+50 HP (Max & Heal)", "color": GREEN},
         {"type": "SPEED", "name": "Swift Caster", "desc": "+Attack Speed", "color": YELLOW},
         {"type": "DAMAGE", "name": "Arcane Power", "desc": "+25% Damage", "color": MAGENTA},
-        {"type": "MULTISHOT", "name": "Twin Spell", "desc": "+1 Projectile", "color": CYAN},
+        {"type": "MULTISHOT", "name": "Fire Mastery", "desc": "Power Up! +Size +Damage", "color": CYAN},
         {"type": "PIERCING", "name": "Spectral Bolt", "desc": "Pierce +1 Enemy", "color": WHITE},
         {"type": "COINS", "name": "Treasure Hunter", "desc": "+500 Instant Coins", "color": GOLD},
     ]
@@ -449,7 +456,7 @@ def apply_card(card):
     t = card["type"]
     
     if t == "HEALTH":
-        wizard.max_health += 50
+        wizard.max_health += 50 
         wizard.health = wizard.max_health
     elif t == "COINS":
         global TOTAL_COINS
@@ -460,15 +467,15 @@ def apply_card(card):
             wizard.upgrade_levels[t] += 1
             
             if t == "SPEED":
-                wizard.attack_speed_boost += 5
+                wizard.attack_speed_boost += 3 # Nerfed from 5
             elif t == "DAMAGE":
-                wizard.damage_multiplier += 0.25
+                wizard.damage_multiplier += 0.15 # Nerfed from 0.25
             elif t == "MULTISHOT":
                 wizard.multishot += 1
             elif t == "PIERCING":
                 wizard.piercing += 1
 
-def draw_cards_ui(surface):
+def draw_cards_ui(surface, events):
     global current_wave, enemies_killed_in_wave, total_enemies_spawned_in_wave, current_biome, game_state, cards
     
     # Overlay
@@ -483,7 +490,11 @@ def draw_cards_ui(surface):
     if not cards: cards = generate_upgrades()
     
     mouse_pos = pygame.mouse.get_pos()
-    click = pygame.mouse.get_pressed()[0]
+    
+    clicked = False
+    for e in events:
+        if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+            clicked = True
     
     start_x = (SCREEN_WIDTH - (3 * 250 + 40)) // 2
     
@@ -492,16 +503,21 @@ def draw_cards_ui(surface):
         col = (40, 40, 40)
         if rect.collidepoint(mouse_pos):
             col = (60, 60, 60)
-            if click:
+            if clicked:
                 apply_card(c)
                 cards = []
+                global shop_return_target, game_state
                 # Next wave
                 current_wave += 1
                 enemies_killed_in_wave = 0
                 total_enemies_spawned_in_wave = 0
                 if current_wave > 2: current_biome = "ICE"
                 if current_wave > 4: current_biome = "VOLCANO"
-                game_state = "PLAYING"
+                
+                # Go to Shop instead of Playing immediately
+                shop_return_target = "PLAYING"
+                game_state = "SHOP"
+                
                 pygame.time.wait(200)
                 return
         
@@ -535,6 +551,7 @@ while running:
         if keys[pygame.K_RETURN]:
             reset_run()
         if keys[pygame.K_s]:
+            shop_return_target = "MENU"
             game_state = "SHOP"
         if keys[pygame.K_q]:
             running = False
@@ -555,8 +572,8 @@ while running:
                 
         draw_shop(screen)
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_ESCAPE]:
-            game_state = "MENU"
+        if keys[pygame.K_ESCAPE] or (keys[pygame.K_ENTER] and shop_return_target == "PLAYING"):
+            game_state = shop_return_target
             shop_scroll_y = 0 # Reset scroll
          
          # Arrow key scroll
@@ -665,8 +682,7 @@ while running:
             
         wizard.draw(screen)
         for p in projectiles:
-            is_multi = wizard.multishot > 1
-            draw_projectile(screen, p.rect.centerx, p.rect.centery, p.color, is_multishot=is_multi)
+            p.draw(screen)
             
         # Draw Particles
         for p in particles[:]:
@@ -731,7 +747,7 @@ while running:
             screen.blit(txt, (20, SCREEN_HEIGHT - 30))
 
     elif game_state == "CARD_SELECT":
-        draw_cards_ui(screen)
+        draw_cards_ui(screen, events)
         
     elif game_state in ["GAME_OVER", "VICTORY"]:
         screen.fill(BLACK)

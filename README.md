@@ -1,41 +1,38 @@
 # Wizard vs Ogres: Ultimate Edition
 
-A fast-paced, roguelike wave survival game where you play as a powerful Wizard defending against endless hordes of Goblins, Ogres, and Trolls across multiple elemental biomes.
+![Wizard Game Banner](https://via.placeholder.com/1280x300?text=Wizard+vs+Ogres+Ultimate+Edition)
 
-## 🎮 Download & Play (Easiest Way)
+A fast-paced, action-packed 2D platformer/roguelite where you play as a powerful Wizard defending the mystical realms against endless hordes of Ogres, Trolls, and Goblins.
 
-You don't need Python installed! Just download the game and play:
+## 🎮 Game Features
 
-1.  Go to the **[Releases Page](https://github.com/jordi1203/wizard-vs-ogres/releases)** (You need to create a release first, see below).
-2.  Download the `WizardVsOgres.exe` file.
-3.  Double-click to play!
+-   **Dynamic Combat**: Use your magic staff to shoot fireballs and decimate enemies.
+-   **Epic Spells**: Unlock devastating abilities like:
+    -   ⚡ **Chain Lightning**: Zap multiple enemies at once.
+    -   🌪️ **Tornado**: Push back enemies with powerful winds.
+    -   🐉 **Dragon Summon**: Call upon a dragon to clear the screen!
+-   **Roguelite Progression**:
+    -   Collect **Coins** from defeated enemies.
+    -   Visit the **Shop** between waves to buy permanent upgrades and new spells.
+    -   Choose from random **Cards** after every wave to boost your stats (Health, Speed, Damage, Multishot).
+-   **Beautiful Biomes**: Travel through the Enchanted Forest, Frozen Wastelands, and Volcanic Hells.
+-   **Challenging Enemies**: Face off against Goblins, massive Ogres, and regenerating Trolls.
 
-## Key Features
+## 🕹️ Controls
 
-*   **Dynamic Combat**: Use your magic wand to blast enemies, with upgrades for multishot, piercing, and damage.
-*   **Roguelike Progression**: After every wave, choose from random upgrade cards to boost your stats (Health, Speed, Damage, etc.).
-*   **Shop System**: Earn coins from defeating enemies and visit the Shop (Key: `S`) to buy permanent upgrades and unlock new abilities.
-*   **Epic Abilities**:
-    *   **Lightning (Passive)**: Automatically zaps nearby enemies with chain lightning.
-    *   **Tornado (Active)**: Summons massive tornadoes to push back and damage enemies.
-    *   **Dragon Summon (Active)**: Calls forth a legendary dragon to bathe the battlefield in fire.
-*   **Beautiful Biomes**:
-    *   **Forest**: Lush greenery with god rays and falling leaves.
-    *   **Ice Kingdom**: A frozen landscape with jagged crystal spires, a frozen keep, and auroras.
-    *   **Volcano**: An apocalyptic hellscape with dark smoke, lava rivers, and eruptions.
+| Action | Key |
+| :--- | :--- |
+| **Move** | `A` / `D` or `Arrow Keys` |
+| **Jump** | `Space` / `W` / `Up Arrow` |
+| **Shoot** | `Space` or `Left Mouse Click` |
+| **Shop** | `S` (In Menu) |
+| **Tornado** | `T` (Unlockable) |
+| **Dragon** | `R` (Unlockable) |
+| **Pause/Menu** | `ESC` |
 
-## Controls
+## 🚀 How to Run
 
-*   **W / A / S / D** or **Arrow Keys**: Move the Wizard.
-*   **SPACE** or **Left Click**: Shoot magic missiles.
-*   **S**: Open the Shop (between waves or in menu).
-*   **T**: Cast Tornado (if unlocked).
-*   **R**: Summon Dragon (if unlocked).
-*   **ESC**: Pause / Return to Menu.
-
-## How to Run
-
-1.  **Install Python**: Ensure you have Python 3.10+ installed.
+1.  **Install Python**: Ensure you have Python installed.
 2.  **Install Dependencies**:
     ```bash
     pip install pygame
@@ -45,11 +42,14 @@ You don't need Python installed! Just download the game and play:
     python main.py
     ```
 
-## Executable
+## 🛠️ Development
 
-A standalone executable version for Windows is available in the `dist/` folder if you built it using PyInstaller.
+Built with **Python** and **Pygame**.
+-   `main.py`: The heart of the game engine.
+-   `src/config.py`: Game balance and settings.
+-   `src/assets.py`: Procedural drawing and visual effects.
+-   `src/entities.py`: Player and Enemy logic.
 
-## Credits
+---
 
-Created by Jordi.
-Powered by Pygame.
+*Created for the ultimate wizardry experience!* 🧙‍♂️✨

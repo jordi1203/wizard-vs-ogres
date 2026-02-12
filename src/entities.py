@@ -124,18 +124,29 @@ class Wizard(pygame.sprite.Sprite):
             damage = BASE_WAND_DAMAGE * self.damage_multiplier
             color = WAND_COLORS[min(self.wand_level, len(WAND_COLORS)-1)]
             
-            # Multishot Logic
+            # Single Shot Logic (Scaled by Multishot Upgrades)
             start_y_base = self.rect.bottom + offset_y
             
-            for i in range(self.multishot):
-                # Spread shots if multiple
-                spread = (i - (self.multishot-1)/2) * 15
-                
-                p = Projectile(start_x, start_y_base + spread, self.facing_right, color)
-                p.damage = damage
-                p.piercing = self.piercing
-                projectiles.append(p)
-                
+            # Instead of multiple projectiles, we scale ONE projectile
+            # Scale factor based on multishot level (1, 2, 3...)
+            # Nerfed Scaling: +0.3 size per level instead of 0.5
+            scale_factor = 1.0 + (self.multishot - 1) * 0.3
+            
+            p = Projectile(start_x, start_y_base, self.facing_right, color)
+            
+            # Increase Damage based on "multishot" level (which is now just Power Up)
+            # Nerfed Damage: +40% damage per level instead of +100%
+            multishot_dmg_mult = 1.0 + (self.multishot - 1) * 0.4
+            p.damage = damage * multishot_dmg_mult
+            
+            # Increase Size visually
+            p.scale = scale_factor
+            
+            # Pass scale to projectile so it draws bigger
+            
+            p.piercing = self.piercing
+            projectiles.append(p)
+            
             return projectiles
         return None
 
@@ -182,12 +193,13 @@ class Enemy(pygame.sprite.Sprite):
             self.vel_y = 0
 
     def draw(self, surface):
+        t = pygame.time.get_ticks()
         if self.enemy_type == "GOBLIN":
-            draw_goblin(surface, self.rect.centerx, self.rect.bottom, self.direction > 0)
+            draw_goblin(surface, self.rect.centerx, self.rect.bottom, self.direction > 0, tick=t)
         elif self.enemy_type == "TROLL":
-             draw_troll(surface, self.rect.centerx, self.rect.bottom, self.direction > 0)
+             draw_troll(surface, self.rect.centerx, self.rect.bottom, self.direction > 0, tick=t)
         else:
-            draw_ogre(surface, self.rect.centerx, self.rect.bottom, self.direction > 0)
+            draw_ogre(surface, self.rect.centerx, self.rect.bottom, self.direction > 0, tick=t)
 
 class Projectile(pygame.sprite.Sprite):
     def __init__(self, x, y, facing_right, color=WHITE):
@@ -196,27 +208,90 @@ class Projectile(pygame.sprite.Sprite):
         self.damage = BASE_WAND_DAMAGE
         self.piercing = 0
         self.hit_list = [] 
+        self.scale = 1.0 # Default scale
         
-        self.image = pygame.Surface((PROJECTILE_RADIUS*2, PROJECTILE_RADIUS*2), pygame.SRCALPHA)
+        # Fireball sizing
+        self.image = pygame.Surface((PROJECTILE_RADIUS*3, PROJECTILE_RADIUS*3), pygame.SRCALPHA)
         self.rect = self.image.get_rect()
         self.rect.center = (x, y)
         self.vel_x = PROJECTILE_SPEED if facing_right else -PROJECTILE_SPEED
-        # Spread calculation needs to be passed in or handled,
-        # but for now let's just use y position offset from init. 
-        # Actually to make it spread *out*, we need vy.
         self.vel_y = 0 
         
-        # Simple heuristic: if y is not an integer multiple, maybe add slight angle?
-        # Let's just keep them parallel for now as implemented in Wizard.shoot
         self.life = 100
-
+        
+        # Particle System for Trail
+        # Each particle: [x, y, vx, vy, life, max_life, size, color_type]
+        self.particles = []
+        
+    def update_rect(self):
+        # Update rect size based on scale if not already done
+        # We'll do this on the fly or after init if scale is changed externally
+        # But rect center needs to persist.
+        c = self.rect.center
+        
+        # Base Size * Scale
+        size = int(PROJECTILE_RADIUS * 3 * self.scale)
+        if self.image.get_width() != size:
+            self.image = pygame.Surface((size, size), pygame.SRCALPHA)
+            self.rect = self.image.get_rect()
+            self.rect.center = c
+            
     def update(self):
+        # Ensure rect matches scale (lazy update or just check)
+        # For performance, maybe just trust it was set right.
+        # But we set .scale AFTER init in Wizard.shoot. So we need to apply it once.
+        # Let's just blindly re-calc rect size if it seems small compared to scale?
+        # Actually, let's just use the draw function radius logic.
+        # But collision depends on self.rect.
+        
+        # Hacky fix: Check if rect width matches expected
+        expected_size = int(PROJECTILE_RADIUS * 3 * self.scale)
+        if self.rect.width != expected_size:
+            c = self.rect.center
+            self.image = pygame.Surface((expected_size, expected_size), pygame.SRCALPHA)
+            self.rect = self.image.get_rect()
+            self.rect.center = c
+            
         self.rect.x += self.vel_x
         self.life -= 1
+        
+        # --- Spawn Trail Particles ---
+        # Spawn more particles if bigger
+        count = 3 + int(self.scale * 2)
+        
+        for _ in range(count):
+            # Random offset from center (scaled)
+            spread = 5 * self.scale
+            off_x = random.uniform(-spread, spread)
+            off_y = random.uniform(-spread, spread)
+            
+            px = self.rect.centerx + off_x
+            py = self.rect.centery + off_y
+            
+            # Velocity
+            vx = -self.vel_x * 0.3 + random.uniform(-1, 1)
+            vy = random.uniform(-2, 2) 
+            
+            life = random.randint(15, 30)
+            size = random.randint(4, 10) * self.scale # Scale particles too
+            
+            # Store particle
+            self.particles.append([px, py, vx, vy, life, life, size])
+
+        # --- Update Particles ---
+        for p in self.particles:
+            p[0] += p[2] # x move
+            p[1] += p[3] # y move
+            p[4] -= 1    # life drain
+            p[6] *= 0.95 # shrink
+            
+        # Remove dead particles
+        self.particles = [p for p in self.particles if p[4] > 0 and p[6] > 1] 
+
         return self.life > 0
 
     def draw(self, surface):
-        draw_projectile(surface, self.rect.centerx, self.rect.centery, self.color)
+        draw_projectile(surface, self.rect.centerx, self.rect.centery, self.color, self.particles, self.scale)
 
 class Particle(pygame.sprite.Sprite):
     def __init__(self, x, y, color):

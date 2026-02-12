@@ -21,7 +21,7 @@ GOLD = (255, 215, 0)
 
 # Wand/Projectile Colors by Level
 WAND_COLORS = [
-    (255, 255, 255), 
+    (255, 69, 0),    # Red-Orange (Fire)
     (0, 191, 255), 
     (50, 205, 50), 
     (255, 0, 0)      
