@@ -1,6 +1,7 @@
 # Wizard vs Ogres: Ultimate Edition
 
-![Wizard Game Banner](https://via.placeholder.com/1280x300?text=Wizard+vs+Ogres+Ultimate+Edition)
+[![Wizard Game Logo](assets/logo.png)](https://github.com/jordi1203/wizard-vs-ogres/raw/main/dist/WizardVsOgres.exe)
+
 
 A fast-paced, action-packed 2D platformer/roguelite where you play as a powerful Wizard defending the mystical realms against endless hordes of Ogres, Trolls, and Goblins.
 
