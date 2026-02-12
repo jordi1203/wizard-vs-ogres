@@ -170,74 +170,109 @@ def kill_enemy(enemy):
 # --- UI STATES ---
 
 def draw_menu(surface):
-    # 1. Dynamic Background
+    # 1. Background & Atmosphere
     draw_background_scenery(surface, "FOREST", SCREEN_WIDTH, SCREEN_HEIGHT)
     
-    # 2. Dark Overlay for contest
-    s = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
-    s.fill((0, 0, 0, 150)) # Darken background
-    surface.blit(s, (0,0))
+    # Ground params from assets.py (FOREST height - 80)
+    ground_y = SCREEN_HEIGHT - 80
     
-    cx, cy = SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2
+    # Dark Vignette / Gradient Overlay for style
+    # Top dark for title, Bottom dark for menu
+    s_grad = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+    for i in range(SCREEN_HEIGHT):
+        alpha = 0
+        if i < 300: alpha = int(150 * (1 - i/300)) # Top fade
+        if i > SCREEN_HEIGHT - 300: alpha = int(180 * ((i - (SCREEN_HEIGHT-300))/300)) # Bottom fade
+        if alpha > 0:
+            pygame.draw.line(s_grad, (0, 0, 20), (0, i), (SCREEN_WIDTH, i))
+    surface.blit(s_grad, (0,0))
+
     t = pygame.time.get_ticks()
+    cx = SCREEN_WIDTH // 2
     
-    # 3. Draw Characters (Face-Off)
-    # Wizard on Left
-    draw_wizard(surface, cx - 300, cy + 100, facing_right=True)
-    # Ogre on Right (Animated)
-    draw_ogre(surface, cx + 300, cy + 100, facing_right=False, scale=1.2, tick=t)
+    # 2. Characters on Ground (Action Poses)
+    # Wizard (Left)
+    wiz_x = cx - 250
+    wiz_y = ground_y - 20
+    draw_wizard(surface, wiz_x, wiz_y, facing_right=True, is_casting=(t % 2000 < 1000))
     
-    # 4. Title (Shadowed & Pulsing)
-    title_scale = 1.0 + math.sin(t / 500) * 0.05
-    # Create large font for title if not exists (using scale on existing or new font)
-    title_font = pygame.font.SysFont("Arial", 64, bold=True)
+    # Ogre (Right)
+    ogre_x = cx + 250
+    ogre_y = ground_y - 20 
+    draw_ogre(surface, ogre_x, ogre_y, facing_right=False, scale=1.3, tick=t)
     
+    # 3. Epic Title
     title_text = "WIZARD vs OGRES"
+    title_font = pygame.font.SysFont("Verdana", 80, bold=True)
     
-    # Shadow
+    # Shadow/Glow
     shad = title_font.render(title_text, True, (0, 0, 0))
-    shad_rect = shad.get_rect(center=(cx + 5, cy - 150 + 5))
-    surface.blit(shad, shad_rect)
+    surface.blit(shad, shad.get_rect(center=(cx+4, 154)))
     
-    # Main Title
-    tit = title_font.render(title_text, True, (255, 200, 50)) # Gold/Orange
-    tit_rect = tit.get_rect(center=(cx, cy - 150))
-    surface.blit(tit, tit_rect)
+    # Main with gradient simulation
+    col_top = (255, 215, 0) # Gold
+    col_bot = (255, 100, 0) # Orange
+    # We render twice with slight offset or just solid gold for now
+    tit = title_font.render(title_text, True, col_top)
+    surface.blit(tit, tit.get_rect(center=(cx, 150)))
     
-    sub_tit = small_font.render("Ultimate Edition", True, CYAN)
-    surface.blit(sub_tit, sub_tit.get_rect(center=(cx, cy - 100)))
+    # Subtitle
+    sub_font = pygame.font.SysFont("Arial", 30, italic=True)
+    sub = sub_font.render("- ULTIMATE EDITION -", True, (100, 200, 255))
+    surface.blit(sub, sub.get_rect(center=(cx, 210)))
 
-    # 5. Menu Options
-    opts_y = cy + 20
-    spacing = 60
+    # 4. Modern Interactive Menu Buttons
+    mouse_pos = pygame.mouse.get_pos()
+    menu_opts = [
+        {"text": "PLAY GAME", "key": "ENTER", "action": "START"},
+        {"text": "ITEM SHOP", "key": "S", "action": "SHOP"},
+        {"text": "EXIT", "key": "Q", "action": "QUIT"}
+    ]
     
-    # Helper to draw menu item
-    def draw_item(text, y, color, key_hint):
-        # Hover effect (simulated by pulsing sine wave for all, or selected?)
-        # Since we use keyboard, let's just make them nice.
-        txt = shop_font.render(text, True, color)
-        rect = txt.get_rect(center=(cx, y))
+    start_y = 350
+    btn_w, btn_h = 300, 60
+    
+    for i, opt in enumerate(menu_opts):
+        btn_y = start_y + i * (btn_h + 20)
+        rect = pygame.Rect(cx - btn_w//2, btn_y, btn_w, btn_h)
         
-        # Background box for text
-        bg_rect = rect.inflate(40, 20)
-        pygame.draw.rect(surface, (0, 0, 0, 100), bg_rect, border_radius=10)
-        pygame.draw.rect(surface, color, bg_rect, 2, border_radius=10)
+        is_hover = rect.collidepoint(mouse_pos)
         
-        surface.blit(txt, rect)
+        # Style
+        bg_col = (20, 20, 40, 200) if not is_hover else (50, 50, 80, 230)
+        border_col = (100, 100, 200) if not is_hover else (255, 255, 0)
         
-        # Key hint small
-        hint = small_font.render(key_hint, True, GRAY)
-        hint_rect = hint.get_rect(midleft=(rect.right + 30, y))
-        surface.blit(hint, hint_rect)
+        # Draw Button Box
+        s_btn = pygame.Surface((btn_w, btn_h), pygame.SRCALPHA)
+        pygame.draw.rect(s_btn, bg_col, (0,0,btn_w,btn_h), border_radius=15)
+        pygame.draw.rect(s_btn, border_col, (0,0,btn_w,btn_h), 3, border_radius=15)
+        surface.blit(s_btn, rect)
+        
+        # Text
+        txt_col = (200, 200, 200) if not is_hover else (255, 255, 255)
+        mtxt = shop_font.render(opt["text"], True, txt_col)
+        surface.blit(mtxt, mtxt.get_rect(center=rect.center))
+        
+        # Key Hint (Outside)
+        hint = small_font.render(f"[{opt['key']}]", True, (100, 100, 100))
+        surface.blit(hint, (rect.right + 15, rect.centery - 10))
 
-    draw_item("START GAME", opts_y, GREEN, "[ENTER]")
-    draw_item("MAGIC SHOP", opts_y + spacing, GOLD, "[S]")
-    draw_item("QUIT", opts_y + spacing * 2, RED, "[Q]")
+    # 5. Bottom Stats Bar
+    bar_y = SCREEN_HEIGHT - 40
+    pygame.draw.rect(surface, (0,0,0,180), (0, bar_y, SCREEN_WIDTH, 40))
     
-    # 6. User Stats
-    coins_txt = small_font.render(f"Total Coins: {TOTAL_COINS}", True, GOLD)
-    pygame.draw.rect(surface, (0,0,0,150), (10, 10, coins_txt.get_width()+20, 40), border_radius=5)
-    surface.blit(coins_txt, (20, 20))
+    c_icon = font.render(f"💰 {TOTAL_COINS}", True, GOLD) # Emoji works? Usually relies on system font. 
+    # If not, fall back to "Coins:"
+    try:
+        pass # Pygame font rendering emojis is hit or miss
+    except:
+        pass
+        
+    c_txt = small_font.render(f"YOUR WEALTH: {TOTAL_COINS} Gold", True, GOLD)
+    surface.blit(c_txt, (20, bar_y + 8))
+    
+    ver = small_font.render("v2.0.0", True, GRAY)
+    surface.blit(ver, (SCREEN_WIDTH - 80, bar_y + 8))
 
 def draw_shop(surface):
     global TOTAL_COINS
@@ -605,6 +640,35 @@ while running:
     if game_state == "MENU":
         draw_menu(screen)
         
+        # Logic for buttons (must match draw_menu rects)
+        cx = SCREEN_WIDTH // 2
+        start_y = 350
+        btn_w, btn_h = 300, 60
+        
+        # Check clicks
+        mouse_pos = pygame.mouse.get_pos()
+        click = False
+        for e in events:
+            if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                click = True
+        
+        # Reconstruct rects to check collisions
+        # 0: PLAY
+        rect_play = pygame.Rect(cx - btn_w//2, start_y, btn_w, btn_h)
+        if rect_play.collidepoint(mouse_pos) and click:
+            reset_run()
+            
+        # 1: SHOP
+        rect_shop = pygame.Rect(cx - btn_w//2, start_y + (btn_h + 20), btn_w, btn_h)
+        if rect_shop.collidepoint(mouse_pos) and click:
+            shop_return_target = "MENU"
+            game_state = "SHOP"
+            
+        # 2: EXIT
+        rect_exit = pygame.Rect(cx - btn_w//2, start_y + 2*(btn_h + 20), btn_w, btn_h)
+        if rect_exit.collidepoint(mouse_pos) and click:
+            running = False
+
         keys = pygame.key.get_pressed()
         if keys[pygame.K_RETURN]:
             reset_run()
@@ -612,7 +676,6 @@ while running:
             shop_return_target = "MENU"
             game_state = "SHOP"
         if keys[pygame.K_q]:
-            running = False
             running = False
     elif game_state == "SHOP":
         # Handle Scroll
