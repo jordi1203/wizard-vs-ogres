@@ -32,11 +32,12 @@ A fast-paced, action-packed 2D platformer/roguelite where you play as a powerful
 
 ## 🚀 How to Play (No Installation Needed!)
 
-**[CLICK HERE TO DOWNLOAD THE GAME (.exe)](dist/WizardVsOgres.exe)**
+The game executable is located inside the **`dist`** folder.
 
-1.  Click the link above to download the file (or go to the `dist` folder above).
-2.  If GitHub shows a "Download raw file" button, click that.
-3.  Once downloaded, double-click **`WizardVsOgres.exe`** to play!
+1.  Go to the **`dist`** folder in the file list above.
+2.  Click on **`WizardVsOgres.exe`**.
+3.  Click the **Download** button (usually on the right side).
+4.  Double-click the downloaded file to play!
 
 ---
 
