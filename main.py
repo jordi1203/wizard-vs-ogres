@@ -572,7 +572,7 @@ while running:
                 
         draw_shop(screen)
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_ESCAPE] or (keys[pygame.K_ENTER] and shop_return_target == "PLAYING"):
+        if keys[pygame.K_ESCAPE] or (keys[pygame.K_RETURN] and shop_return_target == "PLAYING"):
             game_state = shop_return_target
             shop_scroll_y = 0 # Reset scroll
          
