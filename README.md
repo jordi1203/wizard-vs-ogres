@@ -32,12 +32,15 @@ A fast-paced, action-packed 2D platformer/roguelite where you play as a powerful
 
 ## 🚀 How to Run
 
-1.  **Install Python**: Ensure you have Python installed.
-2.  **Install Dependencies**:
+1.  **Download the Game**:
+    -   **Option A (Git)**: Run `git clone https://github.com/jordi1203/wizard-vs-ogres.git`
+    -   **Option B (Zip)**: Click the green **Code** button on GitHub, select **Download ZIP**, and extract simple folder.
+2.  **Install Python**: Ensure you have [Python](https://www.python.org/downloads/) installed.
+3.  **Install Dependencies**:
     ```bash
     pip install pygame
     ```
-3.  **Run the Game**:
+4.  **Run the Game**:
     ```bash
     python main.py
     ```
