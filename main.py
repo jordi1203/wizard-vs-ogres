@@ -173,33 +173,37 @@ def draw_menu(surface):
     # 1. Background & Atmosphere
     draw_background_scenery(surface, "FOREST", SCREEN_WIDTH, SCREEN_HEIGHT)
     
-    # Ground params from assets.py (FOREST height - 80)
     ground_y = SCREEN_HEIGHT - 80
     
-    # Dark Vignette / Gradient Overlay for style
-    # Top dark for title, Bottom dark for menu
+    # Dark Vignette
     s_grad = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
     for i in range(SCREEN_HEIGHT):
         alpha = 0
-        if i < 300: alpha = int(150 * (1 - i/300)) # Top fade
-        if i > SCREEN_HEIGHT - 300: alpha = int(180 * ((i - (SCREEN_HEIGHT-300))/300)) # Bottom fade
+        if i < 300: alpha = int(150 * (1 - i/300)) 
+        if i > SCREEN_HEIGHT - 300: alpha = int(180 * ((i - (SCREEN_HEIGHT-300))/300))
         if alpha > 0:
             pygame.draw.line(s_grad, (0, 0, 20), (0, i), (SCREEN_WIDTH, i))
     surface.blit(s_grad, (0,0))
 
-    t = pygame.time.get_ticks()
     cx = SCREEN_WIDTH // 2
     
-    # 2. Characters on Ground (Action Poses)
-    # Wizard (Left)
-    wiz_x = cx - 250
-    wiz_y = ground_y - 20
-    draw_wizard(surface, wiz_x, wiz_y, facing_right=True, is_casting=(t % 2000 < 1000))
+    # 2. Main Character: The Wizard (High Quality Scale)
+    # Using new helper function from assets
+    draw_scaled_wizard(surface, cx, ground_y - 20, scale=2.5)
     
-    # Ogre (Right)
-    ogre_x = cx + 250
-    ogre_y = ground_y - 20 
-    draw_ogre(surface, ogre_x, ogre_y, facing_right=False, scale=1.3, tick=t)
+    # Magical Particles for "Super Quality" feel
+    t = pygame.time.get_ticks()
+    random.seed(t // 50) # Stable seed per frame for visual noise or just random?
+    # Actually just random sparkles around him
+    for _ in range(5):
+        sx = cx + random.randint(-150, 150)
+        sy = ground_y - 20 - random.randint(50, 400)
+        # Pulse alpha
+        alpha = random.randint(100, 255)
+        # Draw star
+        s_part = pygame.Surface((10, 10), pygame.SRCALPHA)
+        pygame.draw.circle(s_part, (255, 255, 200, alpha), (5, 5), random.randint(1, 3))
+        surface.blit(s_part, (sx, sy))
     
     # 3. Epic Title
     title_text = "WIZARD vs OGRES"
@@ -209,19 +213,15 @@ def draw_menu(surface):
     shad = title_font.render(title_text, True, (0, 0, 0))
     surface.blit(shad, shad.get_rect(center=(cx+4, 154)))
     
-    # Main with gradient simulation
-    col_top = (255, 215, 0) # Gold
-    col_bot = (255, 100, 0) # Orange
-    # We render twice with slight offset or just solid gold for now
-    tit = title_font.render(title_text, True, col_top)
+    # Main Title
+    tit = title_font.render(title_text, True, (255, 215, 0)) 
     surface.blit(tit, tit.get_rect(center=(cx, 150)))
     
-    # Subtitle
     sub_font = pygame.font.SysFont("Arial", 30, italic=True)
     sub = sub_font.render("- ULTIMATE EDITION -", True, (100, 200, 255))
     surface.blit(sub, sub.get_rect(center=(cx, 210)))
 
-    # 4. Modern Interactive Menu Buttons
+    # 4. Menu Options
     mouse_pos = pygame.mouse.get_pos()
     menu_opts = [
         {"text": "PLAY GAME", "key": "ENTER", "action": "START"},
@@ -229,8 +229,13 @@ def draw_menu(surface):
         {"text": "EXIT", "key": "Q", "action": "QUIT"}
     ]
     
-    start_y = 350
+    start_y = 380 # Lowered slightly to not overlap wizard head too much
     btn_w, btn_h = 300, 60
+    
+    # Draw buttons on sides? No, center is fine, maybe semi-transparent over wizard?
+    # Or move wizard to left and menu to right?
+    # User said "solo este el mago ... en bosque".
+    # Center composition is strongest.
     
     for i, opt in enumerate(menu_opts):
         btn_y = start_y + i * (btn_h + 20)
@@ -238,8 +243,8 @@ def draw_menu(surface):
         
         is_hover = rect.collidepoint(mouse_pos)
         
-        # Style
-        bg_col = (20, 20, 40, 200) if not is_hover else (50, 50, 80, 230)
+        # Style - Darker background for contrast against wizard
+        bg_col = (10, 10, 20, 220) if not is_hover else (40, 40, 80, 240)
         border_col = (100, 100, 200) if not is_hover else (255, 255, 0)
         
         # Draw Button Box
@@ -253,26 +258,18 @@ def draw_menu(surface):
         mtxt = shop_font.render(opt["text"], True, txt_col)
         surface.blit(mtxt, mtxt.get_rect(center=rect.center))
         
-        # Key Hint (Outside)
-        hint = small_font.render(f"[{opt['key']}]", True, (100, 100, 100))
+        hint = small_font.render(f"[{opt['key']}]", True, (150, 150, 150))
         surface.blit(hint, (rect.right + 15, rect.centery - 10))
 
     # 5. Bottom Stats Bar
     bar_y = SCREEN_HEIGHT - 40
     pygame.draw.rect(surface, (0,0,0,180), (0, bar_y, SCREEN_WIDTH, 40))
     
-    c_icon = font.render(f"💰 {TOTAL_COINS}", True, GOLD) # Emoji works? Usually relies on system font. 
-    # If not, fall back to "Coins:"
-    try:
-        pass # Pygame font rendering emojis is hit or miss
-    except:
-        pass
-        
     c_txt = small_font.render(f"YOUR WEALTH: {TOTAL_COINS} Gold", True, GOLD)
     surface.blit(c_txt, (20, bar_y + 8))
     
-    ver = small_font.render("v2.0.0", True, GRAY)
-    surface.blit(ver, (SCREEN_WIDTH - 80, bar_y + 8))
+    ver = small_font.render("v2.1 (Ultra)", True, GRAY)
+    surface.blit(ver, (SCREEN_WIDTH - 120, bar_y + 8))
 
 def draw_shop(surface):
     global TOTAL_COINS
@@ -642,7 +639,7 @@ while running:
         
         # Logic for buttons (must match draw_menu rects)
         cx = SCREEN_WIDTH // 2
-        start_y = 350
+        start_y = 380
         btn_w, btn_h = 300, 60
         
         # Check clicks

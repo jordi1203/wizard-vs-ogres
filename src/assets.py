@@ -125,6 +125,22 @@ def draw_wizard(surface, x, y, facing_right, is_casting=False, wand_color=(255, 
 
     return (top_x, top_y) # Exact tip position
 
+def draw_scaled_wizard(surface, x, y, scale=1.0):
+    """Draws the wizard scaled up for menus/intros."""
+    w, h = 300, 300
+    s = pygame.Surface((w, h), pygame.SRCALPHA)
+    
+    # Draw at center of temp surface
+    # Feet at 280 (leaving room). Center X at 150.
+    draw_wizard(s, 150, 280, facing_right=True, is_casting=True)
+    
+    if scale != 1.0:
+        s = pygame.transform.scale(s, (int(w*scale), int(h*scale)))
+        
+    rect = s.get_rect(midbottom=(x, y))
+    surface.blit(s, rect)
+
+
 def draw_ogre(surface, x, y, facing_right, scale=1.0, tick=0):
     """Draws a Green Ogre."""
     _draw_monster_base(surface, x, y, facing_right, scale, 
