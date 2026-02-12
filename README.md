@@ -2,61 +2,61 @@
 
 [![Wizard Game Logo](assets/logo.png)](https://github.com/jordi1203/wizard-vs-ogres/raw/main/dist/WizardVsOgres.exe)
 
+Un juego de plataformas/roguelite trepidante y lleno de acción donde juegas como un poderoso Mago defendiendo los reinos místicos contra hordas interminables de Ogros, Trolls y Goblins.
 
-A fast-paced, action-packed 2D platformer/roguelite where you play as a powerful Wizard defending the mystical realms against endless hordes of Ogres, Trolls, and Goblins.
+## 🎮 Características del Juego
 
-## 🎮 Game Features
+-   **Combate Dinámico**: Usa tu vara mágica para disparar bolas de fuego y diezmar a los enemigos.
+-   **Hechizos Épicos**: Desbloquea habilidades devastadoras como:
+    -   ⚡ **Rayo en Cadena**: Electrocuta a múltiples enemigos a la vez.
+    -   🌪️ **Tornado**: Empuja a los enemigos con vientos poderosos.
+    -   🐉 **Invocación de Dragón**: ¡Llama a un dragón para limpiar la pantalla!
+-   **Progresión Roguelite**:
+    -   Recoge **Monedas** de los enemigos derrotados.
+    -   Visita la **Tienda** entre oleadas para comprar mejoras permanentes y nuevos hechizos.
+    -   Elige entre **Cartas** aleatorias después de cada oleada para mejorar tus estadísticas (Salud, Velocidad, Daño, Multidisparo).
+-   **Hermosos Biomas**: Viaja a través del Bosque Encantado, los Páramos Helados y los Infiernos Volcánicos.
+-   **Enemigos Desafiantes**: Enfréntate a Goblins, Ogros masivos y Trolls regeneradores.
 
--   **Dynamic Combat**: Use your magic staff to shoot fireballs and decimate enemies.
--   **Epic Spells**: Unlock devastating abilities like:
-    -   ⚡ **Chain Lightning**: Zap multiple enemies at once.
-    -   🌪️ **Tornado**: Push back enemies with powerful winds.
-    -   🐉 **Dragon Summon**: Call upon a dragon to clear the screen!
--   **Roguelite Progression**:
-    -   Collect **Coins** from defeated enemies.
-    -   Visit the **Shop** between waves to buy permanent upgrades and new spells.
-    -   Choose from random **Cards** after every wave to boost your stats (Health, Speed, Damage, Multishot).
--   **Beautiful Biomes**: Travel through the Enchanted Forest, Frozen Wastelands, and Volcanic Hells.
--   **Challenging Enemies**: Face off against Goblins, massive Ogres, and regenerating Trolls.
+## 🕹️ Controles
 
-## 🕹️ Controls
-
-| Action | Key |
+| Acción | Tecla |
 | :--- | :--- |
-| **Move** | `A` / `D` or `Arrow Keys` |
-| **Jump** | `Space` / `W` / `Up Arrow` |
-| **Shoot** | `Space` or `Left Mouse Click` |
-| **Shop** | `S` (In Menu) |
-| **Tornado** | `T` (Unlockable) |
-| **Dragon** | `R` (Unlockable) |
-| **Pause/Menu** | `ESC` |
+| **Mover** | `A` / `D` o `Flechas` |
+| **Saltar** | `Espacio` / `W` / `Flecha Arriba` |
+| **Disparar** | `Espacio` o `Clic Izquierdo Ratón` |
+| **Tienda** | `S` (En Menú) |
+| **Tornado** | `T` (Desbloqueable) |
+| **Dragón** | `R` (Desbloqueable) |
+| **Pausa/Menú** | `ESC` |
 
-## 🚀 How to Play (No Installation Needed!)
+## 🚀 Cómo Jugar (¡Sin Instalación!)
 
-The game executable is located inside the **`dist`** folder.
+El ejecutable del juego se encuentra dentro de la carpeta **`dist`**. **¡Haz clic en la imagen de arriba para descargarlo automáticamente!**
 
-1.  Go to the **`dist`** folder in the file list above.
-2.  Click on **`WizardVsOgres.exe`**.
-3.  Click the **Download** button (usually on the right side).
-4.  Double-click the downloaded file to play!
-
----
-
-### 💻 For Developers (Source Code)
-
-If you want to modify the code:
-1.  Clone repo: `git clone https://github.com/jordi1203/wizard-vs-ogres.git`
-2.  Install Python & Dependencies: `pip install pygame`
-3.  Run: `python main.py`
-
-## 🛠️ Development
-
-Built with **Python** and **Pygame**.
--   `main.py`: The heart of the game engine.
--   `src/config.py`: Game balance and settings.
--   `src/assets.py`: Procedural drawing and visual effects.
--   `src/entities.py`: Player and Enemy logic.
+Si prefieres hacerlo manualmente:
+1.  Ve a la carpeta **`dist`** en la lista de archivos de arriba.
+2.  Haz clic en **`WizardVsOgres.exe`**.
+3.  Haz clic en el botón **Download** (Descargar).
+4.  ¡Haz doble clic en el archivo descargado para jugar!
 
 ---
 
-*Created for the ultimate wizardry experience!* 🧙‍♂️✨
+### 💻 Para Desarrolladores (Código Fuente)
+
+Si quieres modificar el código:
+1.  Clonar repo: `git clone https://github.com/jordi1203/wizard-vs-ogres.git`
+2.  Instalar Python y Dependencias: `pip install pygame`
+3.  Ejecutar: `python main.py`
+
+## 🛠️ Desarrollo
+
+Construido con **Python** y **Pygame**.
+-   `main.py`: El corazón del motor del juego.
+-   `src/config.py`: Balance del juego y configuraciones.
+-   `src/assets.py`: Dibujo procedural y efectos visuales.
+-   `src/entities.py`: Lógica del Jugador y Enemigos.
+
+---
+
+*¡Creado para la experiencia de hechicería definitiva!* 🧙‍♂️✨
