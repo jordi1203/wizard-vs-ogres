@@ -32,13 +32,22 @@ Un juego de plataformas/roguelite trepidante y lleno de acción donde juegas com
 
 ## 🚀 Cómo Jugar (¡Sin Instalación!)
 
-El ejecutable del juego se encuentra dentro de la carpeta **`dist`**. **¡Haz clic en la imagen de arriba para descargarlo automáticamente!**
+## 🚀 Cómo Jugar (¡NUEVA VERSIÓN v2.2!)
+
+El ejecutable del juego se encuentra dentro de la carpeta **`dist`** y se llama **`WizardVsOgres_v2.exe`**.
+
+**⬇️ [HAZ CLIC AQUÍ PARA DESCARGAR LA VERSIÓN v2.2](https://github.com/jordi1203/wizard-vs-ogres/raw/main/dist/WizardVsOgres_v2.exe)**
 
 Si prefieres hacerlo manualmente:
-1.  Ve a la carpeta **`dist`** en la lista de archivos de arriba.
-2.  Haz clic en **`WizardVsOgres.exe`**.
-3.  Haz clic en el botón **Download** (Descargar).
-4.  ¡Haz doble clic en el archivo descargado para jugar!
+1.  Ve a la carpeta **`dist`** arriba.
+2.  Haz clic en **`WizardVsOgres_v2.exe`** (¡Asegúrate que sea **v2**!).
+3.  Haz clic en el botón de descarga (**Download** / icono de flecha).
+4.  ¡Ejecuta el archivo y disfruta de las nuevas armas y enemigos!
+
+## 🌟 Novedades V2.2
+- **Arqueros Esqueleto**: ¡Cuidado con sus flechas a partir de la oleada 3!
+- **Nuevas Armas**: Compra en la tienda y usa las teclas `1`, `2`, `3`, `4` para cambiar.
+- **Jefes**: ¡El Rey Ogro te espera!
 
 ---
 
