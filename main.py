@@ -786,7 +786,7 @@ while running:
         enemy_projectiles.update() # Ranged enemy shots
         
         for p in projectiles:
-            if p.rect.left > SCREEN_WIDTH or p.rect.right < 0 or p.rect.bottom < 0 or p.rect.top > SCREEN_HEIGHT:
+            if p.rect.left > SCREEN_WIDTH + 200 or p.rect.right < -200 or p.rect.bottom < -200 or p.rect.top > SCREEN_HEIGHT + 200:
                  p.kill()
 
         # Enemy Projectile Collisions
@@ -872,8 +872,8 @@ while running:
 
                 if wizard.health <= 0: game_state = "GAME_OVER"
             
-            # Remove if off screen
-            if p.rect.right < 0 or p.rect.left > SCREEN_WIDTH or p.rect.bottom < 0 or p.rect.top > SCREEN_HEIGHT:
+            # Remove if off screen (Expanded)
+            if p.rect.right < -200 or p.rect.left > SCREEN_WIDTH + 200 or p.rect.bottom < -200 or p.rect.top > SCREEN_HEIGHT + 200:
                  p.kill()
         
         # Wave Check
@@ -941,8 +941,19 @@ while running:
             p.draw(screen)
             
         for p in enemy_projectiles:
-            pygame.draw.circle(screen, (255, 0, 0), p.rect.center, p.rect.width//2)
-            pygame.draw.circle(screen, (255, 255, 255), p.rect.center, p.rect.width//2 - 2)
+            ep_s = pygame.Surface((p.rect.width*3, p.rect.height*3), pygame.SRCALPHA)
+            ep_cx, ep_cy = ep_s.get_width()//2, ep_s.get_height()//2
+            ep_r = p.rect.width//2
+            # Outer glow
+            pygame.draw.circle(ep_s, (255, 50, 50, 40), (ep_cx, ep_cy), ep_r + 6)
+            pygame.draw.circle(ep_s, (255, 80, 80, 80), (ep_cx, ep_cy), ep_r + 3)
+            # Main body
+            pygame.draw.circle(ep_s, (200, 0, 0), (ep_cx, ep_cy), ep_r)
+            # Inner bright core
+            pygame.draw.circle(ep_s, (255, 150, 100), (ep_cx, ep_cy), max(1, ep_r - 2))
+            # Hot center
+            pygame.draw.circle(ep_s, (255, 255, 200), (ep_cx, ep_cy), max(1, ep_r // 2))
+            screen.blit(ep_s, (p.rect.centerx - ep_cx, p.rect.centery - ep_cy))
             
         # Draw Particles
         for p in particles[:]:
