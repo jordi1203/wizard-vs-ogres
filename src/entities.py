@@ -1,6 +1,7 @@
 
 import pygame
 import random
+import math
 from src.config import *
 from src.assets import *
 
@@ -38,6 +39,9 @@ class Wizard(pygame.sprite.Sprite):
             "TORNADO": False,
             "DRAGON": False
         }
+        self.unlocked_weapons = ["DEFAULT"] # "ARCANE_VOLLEY", "VOID_LANCE", "FIRE_RING"
+        self.current_weapon_index = 0
+        self.current_weapon = "DEFAULT"
 
     def update(self, keys, platforms):
         # Movement
@@ -100,55 +104,152 @@ class Wizard(pygame.sprite.Sprite):
         color = WAND_COLORS[min(self.wand_level, len(WAND_COLORS)-1)]
         draw_wizard(surface, self.rect.centerx, self.rect.bottom, self.facing_right, self.is_casting, color)
 
-    def shoot(self):
+    def select_weapon(self, slot_index):
+        # 1-based index (1, 2, 3...) passed from input
+        # Mapping: 1 -> index 1 of unlocked, etc.
+        # But we want specific keys to map to specific weapons if owned?
+        # User said: "con el 1 puedas usar una arma... con el 2 la otra".
+        # Let's map strict slots:
+        # Slot 0: DEFAULT (Always on '1' ?) 
+        # Actually user says "comprar... luego con el 1 usar una, etc".
+        # Let's make it:
+        # 1: DEFAULT (Wand of Sparks)
+        # 2: ARCANE VOLLEY
+        # 3: VOID LANCE
+        # 4: FIRE RING
+        
+        target_wep = "DEFAULT"
+        if slot_index == 1: target_wep = "DEFAULT"
+        elif slot_index == 2: target_wep = "ARCANE_VOLLEY"
+        elif slot_index == 3: target_wep = "VOID_LANCE"
+        elif slot_index == 4: target_wep = "FIRE_RING"
+        
+        if target_wep == "DEFAULT" or target_wep in self.unlocked_weapons:
+            self.current_weapon = target_wep
+            return True
+        return False
+
+    def shoot(self, target_enemies=None):
         if self.cast_cooldown == 0:
             self.is_casting = True
             base_cooldown = 20
+            
+            # Weapon specific cooldowns
+            if self.current_weapon == "VOID_LANCE": base_cooldown = 50
+            elif self.current_weapon == "ARCANE_VOLLEY": base_cooldown = 40
+            elif self.current_weapon == "FIRE_RING": base_cooldown = 70
+            
             self.cast_cooldown = max(5, base_cooldown - self.attack_speed_boost)
-            
-            # Match visual staff tip from assets.py
-            # staff_x = x + (25 * direction)
-            # staff_y = y - PLAYER_SIZE // 2 + 5
-            
-            # Get tip position from draw helper logic or approximate
-            # We updated draw_wizard to return tip, but here we need to calculate it or just guess for now
-            # Best is to approximate based on the updated draw logic
-            
             
             offset_x = 30 if self.facing_right else -30
             offset_y = -40
-            
             start_x = self.rect.centerx + offset_x
+            start_y_base = self.rect.bottom + offset_y
             
             projectiles = []
             damage = BASE_WAND_DAMAGE * self.damage_multiplier
             color = WAND_COLORS[min(self.wand_level, len(WAND_COLORS)-1)]
             
-            # Single Shot Logic (Scaled by Multishot Upgrades)
-            start_y_base = self.rect.bottom + offset_y
-            
-            # Instead of multiple projectiles, we scale ONE projectile
-            # Scale factor based on multishot level (1, 2, 3...)
-            # Nerfed Scaling: +0.3 size per level instead of 0.5
-            scale_factor = 1.0 + (self.multishot - 1) * 0.3
-            
-            p = Projectile(start_x, start_y_base, self.facing_right, color)
-            
-            # Increase Damage based on "multishot" level (which is now just Power Up)
-            # Nerfed Damage: +40% damage per level instead of +100%
-            multishot_dmg_mult = 1.0 + (self.multishot - 1) * 0.4
-            p.damage = damage * multishot_dmg_mult
-            
-            # Increase Size visually
-            p.scale = scale_factor
-            
-            # Pass scale to projectile so it draws bigger
-            
-            p.piercing = self.piercing
-            projectiles.append(p)
-            
+            if self.current_weapon == "DEFAULT":
+                # Standard Wand logic
+                scale_factor = 1.0 + (self.multishot - 1) * 0.3
+                p = Projectile(start_x, start_y_base, self.facing_right, color, "DEFAULT")
+                multishot_dmg_mult = 1.0 + (self.multishot - 1) * 0.4
+                p.damage = damage * multishot_dmg_mult
+                p.scale = scale_factor
+                p.piercing = self.piercing
+                projectiles.append(p)
+
+            elif self.current_weapon == "ARCANE_VOLLEY":
+                # Fires spread of orb-like projectiles (Purple/Cyan mix)
+                # "Volley" feels better than Shotgun
+                for i in range(5):
+                    angle_offset = random.uniform(-0.4, 0.4) 
+                    p = Projectile(start_x, start_y_base, self.facing_right, (200, 100, 255), "ARCANE_VOLLEY") # Purple
+                    p.damage = damage * 0.5 
+                    p.scale = 0.7
+                    p.life = 50 
+                    
+                    speed = PROJECTILE_SPEED
+                    base_angle = 0 if self.facing_right else 3.14159
+                    final_angle = base_angle + angle_offset
+                    
+                    p.vel_x = math.cos(final_angle) * speed
+                    p.vel_y = math.sin(final_angle) * speed
+                    projectiles.append(p)
+
+            elif self.current_weapon == "VOID_LANCE":
+                # Fast, dark beam
+                p = Projectile(start_x, start_y_base, self.facing_right, (50, 0, 100), "VOID_LANCE") # Dark Purple
+                p.damage = damage * 2.5
+                p.scale = 1.2
+                p.piercing = 999
+                p.vel_x *= 2.5 
+                p.life = 100
+                projectiles.append(p)
+
+            elif self.current_weapon == "FIRE_RING":
+                 # Huge ring of fire that moves slowly but destroys everything
+                 p = Projectile(start_x, start_y_base, self.facing_right, (255, 69, 0), "FIRE_RING") # Orange Red
+                 p.damage = damage * 3.0 # High Single tick damage, hits multiple times? 
+                 # Usually piercing allows multi-hit on same enemy if not careful.
+                 # Our logic hits once per enemy per projectile.
+                 p.piercing = 999
+                 p.scale = 3.0 # Big!
+                 p.vel_x *= 0.6 # Slow moving wall of doom
+                 p.life = 150
+                 projectiles.append(p)
+
             return projectiles
         return None
+
+class EnemyProjectile(pygame.sprite.Sprite):
+    def __init__(self, x, y, target_x, target_y, is_boss=False):
+        super().__init__()
+        size = 20 if is_boss else 10
+        self.image = pygame.Surface((size, size), pygame.SRCALPHA)
+        col = (255, 0, 0) if not is_boss else (100, 0, 100) # Red or Purple
+        pygame.draw.circle(self.image, col, (size//2, size//2), size//2)
+        
+        self.rect = self.image.get_rect()
+        self.rect.center = (x, y)
+        self.speed = 12 if is_boss else 10 # Faster arrows (was 8)
+        self.damage = 25 if is_boss else 15
+        
+        dx = target_x - x
+        dy = target_y - y
+        dist = math.hypot(dx, dy)
+        if dist == 0: dist = 1
+        
+        self.vel_x = (dx / dist) * self.speed
+        self.vel_y = (dy / dist) * self.speed
+        
+        # Floating point position for precision
+        self.exact_x = float(self.rect.centerx)
+        self.exact_y = float(self.rect.centery)
+        
+        # Move it slightly forward?
+        self.exact_x += self.vel_x * 4
+        self.exact_y += self.vel_y * 4
+        self.rect.centerx = int(self.exact_x)
+        self.rect.centery = int(self.exact_y)
+        
+        self.life = 300 
+
+    def update(self):
+        self.exact_x += self.vel_x
+        self.exact_y += self.vel_y
+        
+        self.rect.centerx = int(self.exact_x)
+        self.rect.centery = int(self.exact_y)
+        
+        self.life -= 1
+        if self.life <= 0:
+            self.kill()
+        
+        # Expanded bounds to avoid premature despawn
+        if self.rect.right < -50 or self.rect.left > SCREEN_WIDTH + 50 or self.rect.bottom < -50 or self.rect.top > SCREEN_HEIGHT + 50:
+            self.kill()
 
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, x, y, enemy_type="OGRE"):
@@ -162,8 +263,16 @@ class Enemy(pygame.sprite.Sprite):
             self.health = OGRE_HEALTH_BASE * 0.5
         elif self.enemy_type == "TROLL":
             size = 90
-            self.speed = OGRE_SPEED * 0.7
+            self.speed = OGRE_SPEED * 0.6
             self.health = OGRE_HEALTH_BASE * 2.0
+        elif self.enemy_type == "SKELETON_ARCHER":
+            size = 45
+            self.speed = OGRE_SPEED * 0.9
+            self.health = OGRE_HEALTH_BASE * 0.4
+        elif self.enemy_type == "OGRE_KING": # BOSS
+            size = 180 # Massive
+            self.speed = OGRE_SPEED * 0.5
+            self.health = OGRE_HEALTH_BASE * 15.0 # Tanky
         else: # OGRE
             size = OGRE_SIZE
             self.speed = OGRE_SPEED
@@ -178,22 +287,34 @@ class Enemy(pygame.sprite.Sprite):
         self.did_attack = False
         self.attack_timer = 0
         
-        # Stats based on type
-        if self.enemy_type == "GOBLIN":
+        # Attack Logic & Cooldowns
+        if self.enemy_type == "SKELETON_ARCHER":
+            self.stop_range = 500 # Ranged
+            self.damage = 0 # NO MELEE DAMAGE
+            self.attack_cooldown_max = 100 # Faster fire rate 
+        elif self.enemy_type == "OGRE_KING":
+            self.stop_range = 100
+            self.damage = 50
+            self.attack_cooldown_max = 200 
+        elif self.enemy_type == "GOBLIN":
             self.stop_range = 80 
             self.damage = 20
-            self.attack_cooldown_max = 120 # Slower (2s)
+            self.attack_cooldown_max = 120
         elif self.enemy_type == "TROLL":
             self.stop_range = 120
             self.damage = 45
-            self.attack_cooldown_max = 240 # Very Slow (4s)
+            self.attack_cooldown_max = 240
         else: # OGRE
             self.stop_range = 100
             self.damage = 30
-            self.attack_cooldown_max = 180 # Slow (3s)
+            self.attack_cooldown_max = 180
         
-    def update(self, player_x):
+    def update(self, player_rect):
         self.did_attack = False
+        new_projectile = None
+        
+        player_x = player_rect.centerx
+        player_y = player_rect.centery
         
         # Tracking AI
         dist = self.rect.centerx - player_x
@@ -205,11 +326,15 @@ class Enemy(pygame.sprite.Sprite):
         else:
             self.direction = 1
             
-        # Move only if outside stop range
-        if abs_dist > self.stop_range:
+            
+        # Move only if outside stop range (with Hysteresis)
+        # If already attacking, allow player to be slightly further before moving again.
+        tolerance = 100 if self.is_attacking else 0
+        
+        if abs_dist > self.stop_range + tolerance:
             self.rect.x += self.speed * self.direction
             self.is_attacking = False
-            self.attack_timer = 0 # Reset attack build-up if moving
+            self.attack_timer = 0 
         else:
             # Stop and Attack
             self.is_attacking = True
@@ -217,13 +342,25 @@ class Enemy(pygame.sprite.Sprite):
             # Attack Timer
             self.attack_timer += 1
             
-            # Trigger damage at HALF swing (Impact point)
+            # Trigger damage/shoot at HALF swing
+            # (Attack happens faster now, so /2 of 100 = 50 frames ~ 0.8s)
             if self.attack_timer == self.attack_cooldown_max // 2:
-                self.did_attack = True
+                if self.enemy_type == "SKELETON_ARCHER":
+                    # Fire Arrow
+                    new_projectile = EnemyProjectile(self.rect.centerx, self.rect.centery, player_x, player_y, is_boss=False)
+                elif self.enemy_type == "OGRE_KING": 
+                    # Boss Smash & Projectile
+                    self.did_attack = True # Melee smash
+                    # Also spawn a ring or shockwave? Or just melee for now?
+                    # Let's say he throws a rock AND smashes
+                    new_projectile = EnemyProjectile(self.rect.centerx, self.rect.centery, player_x, player_y, is_boss=True)
+                else:
+                    # Melee
+                    self.did_attack = True
                 
             if self.attack_timer >= self.attack_cooldown_max:
                 self.attack_timer = 0 # Reset
-        
+                
         # Gravity
         self.vel_y += GRAVITY
         self.rect.y += self.vel_y
@@ -231,6 +368,8 @@ class Enemy(pygame.sprite.Sprite):
         if self.rect.bottom > SCREEN_HEIGHT - 50:
             self.rect.bottom = SCREEN_HEIGHT - 50
             self.vel_y = 0
+            
+        return new_projectile
 
     def draw(self, surface):
         t = pygame.time.get_ticks()
@@ -243,17 +382,25 @@ class Enemy(pygame.sprite.Sprite):
             draw_goblin(surface, self.rect.centerx, self.rect.bottom, self.direction > 0, tick=t, is_attacking=self.is_attacking, attack_phase=phase)
         elif self.enemy_type == "TROLL":
              draw_troll(surface, self.rect.centerx, self.rect.bottom, self.direction > 0, tick=t, is_attacking=self.is_attacking, attack_phase=phase)
+        elif self.enemy_type == "SKELETON_ARCHER":
+             draw_skeleton(surface, self.rect.centerx, self.rect.bottom, self.direction > 0, scale=1.0, tick=t, is_attacking=self.is_attacking, attack_phase=phase)
+        elif self.enemy_type == "OGRE_KING":
+             draw_ogre(surface, self.rect.centerx, self.rect.bottom, self.direction > 0, scale=2.5, tick=t, is_attacking=self.is_attacking, attack_phase=phase)
         else:
             draw_ogre(surface, self.rect.centerx, self.rect.bottom, self.direction > 0, tick=t, is_attacking=self.is_attacking, attack_phase=phase)
 
 class Projectile(pygame.sprite.Sprite):
-    def __init__(self, x, y, facing_right, color=WHITE):
+    def __init__(self, x, y, facing_right, color=WHITE, type="DEFAULT"):
         super().__init__()
         self.color = color
+        self.type = type
         self.damage = BASE_WAND_DAMAGE
         self.piercing = 0
         self.hit_list = [] 
         self.scale = 1.0 # Default scale
+        
+        self.is_seeker = False
+        self.target = None
         
         # Fireball sizing
         self.image = pygame.Surface((PROJECTILE_RADIUS*3, PROJECTILE_RADIUS*3), pygame.SRCALPHA)
@@ -281,15 +428,8 @@ class Projectile(pygame.sprite.Sprite):
             self.rect = self.image.get_rect()
             self.rect.center = c
             
-    def update(self):
+    def update(self, enemies_group=None):
         # Ensure rect matches scale (lazy update or just check)
-        # For performance, maybe just trust it was set right.
-        # But we set .scale AFTER init in Wizard.shoot. So we need to apply it once.
-        # Let's just blindly re-calc rect size if it seems small compared to scale?
-        # Actually, let's just use the draw function radius logic.
-        # But collision depends on self.rect.
-        
-        # Hacky fix: Check if rect width matches expected
         expected_size = int(PROJECTILE_RADIUS * 3 * self.scale)
         if self.rect.width != expected_size:
             c = self.rect.center
@@ -297,7 +437,49 @@ class Projectile(pygame.sprite.Sprite):
             self.rect = self.image.get_rect()
             self.rect.center = c
             
+        # Seeker Logic
+        if self.is_seeker:
+             # Find closest enemy if no target or target dead
+             if (not self.target or not self.target.alive()) and enemies_group:
+                 # Find closest
+                 closest = None
+                 min_dist = 9999
+                 for e in enemies_group:
+                     d = math.hypot(e.rect.centerx - self.rect.centerx, e.rect.centery - self.rect.centery)
+                     if d < min_dist:
+                         min_dist = d
+                         closest = e
+                 if closest:
+                     self.target = closest
+             
+             if self.target and self.target.alive():
+                 # Steer towards target
+                 tx, ty = self.target.rect.center
+                 dx = tx - self.rect.centerx
+                 dy = ty - self.rect.centery
+                 dist = math.hypot(dx, dy)
+                 if dist != 0:
+                     dx /= dist
+                     dy /= dist
+                     
+                     # Seeker Speed
+                     speed = PROJECTILE_SPEED * 0.8
+                     self.vel_x = self.vel_x * 0.9 + dx * speed * 0.1
+                     self.vel_y = self.vel_y * 0.9 + dy * speed * 0.1
+                     
+                     # Normalize and apply speed
+                     cur_speed = math.hypot(self.vel_x, self.vel_y)
+                     if cur_speed != 0:
+                         self.vel_x = (self.vel_x / cur_speed) * speed
+                         self.vel_y = (self.vel_y / cur_speed) * speed
+
+        if self.type == "FIRE_RING":
+            # Spin effect or just particle emission?
+            # Let's add rotational velocity to particles for cool ring effect
+            pass 
+
         self.rect.x += self.vel_x
+        self.rect.y += self.vel_y
         self.life -= 1
         
         # --- Spawn Trail Particles ---
@@ -315,7 +497,7 @@ class Projectile(pygame.sprite.Sprite):
             
             # Velocity
             vx = -self.vel_x * 0.3 + random.uniform(-1, 1)
-            vy = random.uniform(-2, 2) 
+            vy = -self.vel_y * 0.3 + random.uniform(-1, 1)  # Added vy reaction
             
             life = random.randint(15, 30)
             size = random.randint(4, 10) * self.scale # Scale particles too
@@ -336,7 +518,7 @@ class Projectile(pygame.sprite.Sprite):
         return self.life > 0
 
     def draw(self, surface):
-        draw_projectile(surface, self.rect.centerx, self.rect.centery, self.color, self.particles, self.scale)
+        draw_projectile(surface, self.rect.centerx, self.rect.centery, self.color, self.particles, self.scale, self.type)
 
 class Particle(pygame.sprite.Sprite):
     def __init__(self, x, y, color):

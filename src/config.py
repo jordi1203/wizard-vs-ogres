@@ -58,6 +58,11 @@ COST_LIGHTNING = 100
 COST_TORNADO = 300
 COST_DRAGON = 1000
 
+# Weapon Costs
+COST_ARCANE_VOLLEY = 1500
+COST_VOID_LANCE = 2000
+COST_FIRE_RING = 5000
+
 # Shop Stat Upgrades (Permanent)
 SHOP_UPGRADES_LIST = [
     {"id": "PERMA_DMG", "name": "Runic Power", "cost": 500, "desc": "+10% Base Damage (Permanent)", "stat": "damage_multiplier", "val": 0.1},

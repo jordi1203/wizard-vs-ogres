@@ -164,6 +164,103 @@ def draw_troll(surface, x, y, facing_right, scale=1.3, tick=0, is_attacking=Fals
                        outfit_color=(50, 50, 50), 
                        weapon="ROCK", tick=tick, is_attacking=is_attacking, attack_phase=attack_phase)
 
+def draw_skeleton(surface, x, y, facing_right, scale=1.0, tick=0, is_attacking=False, attack_phase=0.0):
+    """Draws a Skeleton Archer with a Bow."""
+    direction = 1 if facing_right else -1
+    
+    # Canvas
+    w, h = 300, 300 
+    s = pygame.Surface((w, h), pygame.SRCALPHA)
+    cx, cy = w//2, h - 10
+    
+    # Animation
+    walk_speed = tick / 150
+    if is_attacking:
+        walk_speed = 0
+        leg_l_off = 0
+        leg_r_off = 0
+        # Draw Bow Draw animation
+    else:
+        stride = 10
+        leg_l_off = math.sin(walk_speed) * stride
+        leg_r_off = math.sin(walk_speed + math.pi) * stride
+
+    # Colors
+    BONE = (220, 220, 220)
+    DARK_BONE = (180, 180, 180)
+    
+    # Legs (Bones)
+    leg_w = 6
+    leg_h = 40
+    # Left
+    pygame.draw.rect(s, BONE, (cx - 10 + leg_l_off*direction, cy - leg_h, leg_w, leg_h))
+    # Right
+    pygame.draw.rect(s, BONE, (cx + 10 + leg_r_off*direction, cy - leg_h, leg_w, leg_h))
+    
+    # Pelvis
+    pygame.draw.rect(s, BONE, (cx - 15, cy - leg_h - 10, 30, 10))
+    
+    # Spine (Line)
+    spine_bot = cy - leg_h - 10
+    spine_top = spine_bot - 35
+    pygame.draw.line(s, BONE, (cx, spine_bot), (cx, spine_top), 4)
+    
+    # Ribs
+    for i in range(3):
+        ry = spine_top + 10 + (i * 8)
+        pygame.draw.line(s, BONE, (cx - 12, ry), (cx + 12, ry), 3)
+        
+    # Head (Skull)
+    head_y = spine_top - 20
+    pygame.draw.circle(s, BONE, (cx, head_y), 14) # Skull
+    pygame.draw.rect(s, BONE, (cx - 8, head_y + 8, 16, 10)) # Jaw
+    # Eyes
+    pygame.draw.circle(s, (0, 0, 0), (cx + 5*direction, head_y), 3)
+    
+    # Arms (Holding Bow)
+    # Shoulder
+    shoulder_y = spine_top + 5
+    
+    # Bow Arm (Front)
+    arm_len = 30
+    hand_x = cx + arm_len * direction
+    hand_y = shoulder_y
+    
+    pygame.draw.line(s, BONE, (cx, shoulder_y), (hand_x, hand_y), 4)
+    
+    # Bow Logic
+    # Vertical Arc
+    bow_top = (hand_x, hand_y - 30)
+    bow_bot = (hand_x, hand_y + 30)
+    # Draw arc (simple lines)
+    curve_x = hand_x + 10 * direction
+    pygame.draw.lines(s, (139, 69, 19), False, [bow_top, (curve_x, hand_y), bow_bot], 3)
+    # String
+    draw_pct = 0.0
+    if is_attacking:
+        # Pull back string based on phase
+        # Phase 0 -> 0.5 (Pull), 0.5 -> 1.0 (Release/Hold)
+        if attack_phase < 0.5:
+             draw_pct = attack_phase * 2.0
+        else:
+             draw_pct = 0.0 # Released
+             
+    string_x = hand_x - (draw_pct * 20 * direction)
+    pygame.draw.line(s, (200, 200, 200), bow_top, (string_x, hand_y), 1)
+    pygame.draw.line(s, (200, 200, 200), bow_bot, (string_x, hand_y), 1)
+    
+    # Arrow
+    if is_attacking and attack_phase < 0.5:
+        arrow_end = (string_x, hand_y)
+        arrow_tip = (hand_x + 10 * direction, hand_y)
+        pygame.draw.line(s, (255, 0, 0), arrow_end, arrow_tip, 2)
+
+    # Scale & Blit
+    if scale != 1.0:
+        s = pygame.transform.scale(s, (int(w*scale), int(h*scale)))
+    
+    surface.blit(s, s.get_rect(midbottom=(x, y)))
+
 def _draw_monster_base(surface, x, y, facing_right, scale, skin_color, outfit_color, weapon, is_goblin=False, tick=0, is_attacking=False, attack_phase=0.0):
     direction = 1 if facing_right else -1
     
@@ -390,64 +487,130 @@ def _draw_monster_base(surface, x, y, facing_right, scale, skin_color, outfit_co
     
     surface.blit(s, s.get_rect(midbottom=(x, y)))
 
-def draw_projectile(surface, x, y, color=WHITE, particles=None, scale=1.0):
-    """Draws a REALISTIC FIREBALL with particle trail."""
+def draw_projectile(surface, x, y, color=WHITE, particles=None, scale=1.0, p_type="DEFAULT"):
+    """Draws different projectile visualization based on type."""
     
-    # 1. Draw Particles (Trail) - This creates the smoke/fire trail
+    t = pygame.time.get_ticks()
+    
+    # --- PARTICLE TRAIL (Universalish) ---
     if particles:
         for p in particles:
-            px, py, vx, vy, life, max_life, size = p
-            
-            # Fade alpha based on life
-            alpha = int((life / max_life) * 200)
-            if alpha <= 0: continue
-            
-            # Color shift: Yellow -> Orange -> Red -> Grey Smoke
-            progress = 1.0 - (life / max_life)
-            
-            if progress < 0.2:
-                r, g, b = (255, 255, 100) # Bright Yellow start
-            elif progress < 0.5:
-                r, g, b = (255, 140, 0)   # Orange Mid
-            elif progress < 0.8:
-                r, g, b = (200, 50, 50)   # Red fade
-            else:
-                r, g, b = (100, 100, 100) # Grey smoke
-                
-            # Draw particle
-            s = pygame.Surface((int(size)*2, int(size)*2), pygame.SRCALPHA)
-            pygame.draw.circle(s, (r, g, b, alpha), (int(size), int(size)), int(size))
-            surface.blit(s, (px - size, py - size))
+             px, py, vx, vy, life, max_life, size = p
+             alpha = int((life / max_life) * 200)
+             if alpha <= 0: continue
+             
+             # Color based on type can be refined
+             col = color
+             if p_type == "FIRE_RING": col = (255, 100, 0)
+             elif p_type == "VOID_LANCE": col = (100, 0, 200)
+             elif p_type == "ARCANE_VOLLEY": col = (150, 50, 255)
+             else: # Default fireball particles
+                progress = 1.0 - (life / max_life)
+                if progress < 0.2:
+                    col = (255, 255, 100) # Bright Yellow start
+                elif progress < 0.5:
+                    col = (255, 140, 0)   # Orange Mid
+                elif progress < 0.8:
+                    col = (200, 50, 50)   # Red fade
+                else:
+                    col = (100, 100, 100) # Grey smoke
+             
+             s = pygame.Surface((int(size)*2, int(size)*2), pygame.SRCALPHA)
+             if len(col) == 3: col = (*col, alpha)
+             else: col = (col[0], col[1], col[2], alpha)
+             
+             pygame.draw.circle(s, col, (int(size), int(size)), int(size))
+             surface.blit(s, (px - size, py - size))
 
-    # 2. Draw Fireball Core (The actual projectile)
-    # Scaled sizes
-    base_radius = 16 * scale
-    
-    # Pulsing size for "burning" effect
-    t = pygame.time.get_ticks()
-    pulse = math.sin(t / 50) * (3 * scale)
-    
-    # Outer Glow (Red/Orange Halo)
-    radius_outer = base_radius + pulse
-    s_glow = pygame.Surface((int(radius_outer*3), int(radius_outer*3)), pygame.SRCALPHA)
-    pygame.draw.circle(s_glow, (255, 69, 0, 80), (int(radius_outer*1.5), int(radius_outer*1.5)), int(radius_outer))
-    surface.blit(s_glow, (x - radius_outer*1.5, y - radius_outer*1.5))
-    
-    # Inner Fire (Orange/Yellow)
-    radius_mid = (10 * scale) + pulse * 0.5
-    pygame.draw.circle(surface, (255, 160, 0), (x, y), int(radius_mid))
-    
-    # Core (White hot center)
-    radius_core = 6 * scale
-    pygame.draw.circle(surface, (255, 255, 220), (x, y), int(radius_core))
-    
-    # 3. Extra "Sparks" orbiting/jittering
-    random.seed(int(t/20))
-    for _ in range(int(3 * scale)):
-        range_s = 15 * scale
-        sx = x + random.uniform(-range_s, range_s)
-        sy = y + random.uniform(-range_s, range_s)
-        pygame.draw.circle(surface, (255, 255, 100), (sx, sy), int(2*scale))
+    if p_type == "FIRE_RING":
+        # --- SIMPLE COMPACT FIRE RING ---
+        # User requested: Smaller, simple circle with fire around, mini trail.
+        
+        # 1. Size Setup
+        # Much smaller than before.
+        ring_radius = 20 * scale 
+        s_size = int(ring_radius * 2.8) 
+        s_ring = pygame.Surface((s_size, s_size), pygame.SRCALPHA)
+        cx, cy = s_size//2, s_size//2
+        
+        # Rotation for the fire texture on the ring
+        rot_offset = t / 50.0
+
+        # 2. Draw The Ring (Donut)
+        # Main Body - Orange/Red
+        pygame.draw.circle(s_ring, (255, 100, 0), (cx, cy), int(ring_radius), 4) # Thick ring
+        pygame.draw.circle(s_ring, (255, 200, 50), (cx, cy), int(ring_radius - 2), 2) # Inner brightness
+        
+        # 3. Fire Effects ON the ring (Circumference)
+        # Draw small flames along the ring edge
+        num_flames = 8
+        for i in range(num_flames):
+            angle = (i / num_flames) * 6.28 + rot_offset
+            
+            # Flame position on ring edge
+            fx = cx + math.cos(angle) * ring_radius
+            fy = cy + math.sin(angle) * ring_radius
+            
+            # Flame Size (oscillating)
+            f_size = 4 * scale + math.sin(t/100 + i)*2
+            
+            # Draw flame puff
+            pygame.draw.circle(s_ring, (255, 150, 0, 150), (int(fx), int(fy)), int(f_size))
+            pygame.draw.circle(s_ring, (255, 255, 100, 200), (int(fx), int(fy)), int(f_size*0.6))
+
+        # 4. Center Hole (Ensure it looks like a ring)
+        # (Already achieved by drawing ring with thickness, but let's be sure)
+        
+        # Blit
+        surface.blit(s_ring, (x - s_size//2, y - s_size//2))
+            
+    elif p_type == "VOID_LANCE":
+        # Long, thin, dark beam
+        # Since it moves fast, maybe draw a trail line?
+        # Just simple shape for now
+        # Ellipse stretched
+        w, h = 40 * scale, 10 * scale
+        # Ideally rotated by velocity, but we only have facing direction via velocity normally...
+        # We'll just draw a generic "bolt" shape
+        pygame.draw.ellipse(surface, (50, 0, 100), (x - w//2, y - h//2, w, h))
+        pygame.draw.ellipse(surface, (200, 100, 255), (x - w//2 + 5, y - h//4, w - 10, h//2)) # Core
+        
+    elif p_type == "ARCANE_VOLLEY":
+        # Small unstable orbs
+        pulse = math.sin(t/50) * 2
+        r = 6 * scale + pulse
+        pygame.draw.circle(surface, (150, 50, 255), (x, y), int(r))
+        pygame.draw.circle(surface, (200, 200, 255), (x, y), int(r*0.6))
+        
+    else:
+        # DEFAULT FIREBALL (Original Logic)
+        # 2. Draw Fireball Core (The actual projectile)
+        base_radius = 16 * scale
+        
+        # Pulsing size for "burning" effect
+        pulse = math.sin(t / 50) * (3 * scale)
+        
+        # Outer Glow (Red/Orange Halo)
+        radius_outer = base_radius + pulse
+        s_glow = pygame.Surface((int(radius_outer*3), int(radius_outer*3)), pygame.SRCALPHA)
+        pygame.draw.circle(s_glow, (255, 69, 0, 80), (int(radius_outer*1.5), int(radius_outer*1.5)), int(radius_outer))
+        surface.blit(s_glow, (x - radius_outer*1.5, y - radius_outer*1.5))
+        
+        # Inner Fire (Orange/Yellow)
+        radius_mid = (10 * scale) + pulse * 0.5
+        pygame.draw.circle(surface, (255, 160, 0), (x, y), int(radius_mid))
+        
+        # Core (White hot center)
+        radius_core = 6 * scale
+        pygame.draw.circle(surface, (255, 255, 220), (x, y), int(radius_core))
+        
+        # 3. Extra "Sparks" orbiting/jittering
+        random.seed(int(t/20))
+        for _ in range(int(3 * scale)):
+            range_s = 15 * scale
+            sx = x + random.uniform(-range_s, range_s)
+            sy = y + random.uniform(-range_s, range_s)
+            pygame.draw.circle(surface, (255, 255, 100), (sx, sy), int(2*scale))
 
 def draw_background_scenery(surface, biome, width, height, scroll_x=0):
     """Draws a HIGH QUALITY background with parallax-like depth and details."""

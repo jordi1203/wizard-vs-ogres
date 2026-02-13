@@ -5,7 +5,7 @@ import random
 import math
 from src.config import *
 from src.assets import *
-from src.entities import Wizard, Enemy, Projectile
+from src.entities import Wizard, Enemy, Projectile, EnemyProjectile
 
 # Initialize Pygame
 pygame.init()
@@ -32,6 +32,7 @@ score = 0
 all_sprites = pygame.sprite.Group()
 projectiles = pygame.sprite.Group()
 enemies = pygame.sprite.Group()
+enemy_projectiles = pygame.sprite.Group()
 
 # Player
 wizard = Wizard(100, SCREEN_HEIGHT - 50)
@@ -54,8 +55,11 @@ active_effects = [] # For Tornado, Dragon visuals
 # Or: Play -> Get Coins -> Die/Win -> Main Menu -> Shop.
 # Let's go with: Coins are persistent globally. Skills bought are permanent for the user profile.
 
-TOTAL_COINS = 0
-UNLOCKED_ABILITIES = { "LIGHTNING": False, "TORNADO": False, "DRAGON": False}
+TOTAL_COINS = 999999
+UNLOCKED_ABILITIES = { 
+    "LIGHTNING": False, "TORNADO": False, "DRAGON": False,
+    "ARCANE_VOLLEY": False, "VOID_LANCE": False, "FIRE_RING": False
+}
 SHOP_UPGRADES_STATE = {} # Key: ID, Value: Level
 shop_scroll_y = 0
 shop_return_target = "MENU" # Tracks where to go after closing shop
@@ -94,7 +98,7 @@ def cast_lightning():
                     # 3. Closest to T2
                     others2 = [e for e in others if e != t2]
                     if others2:
-                        t3 = min(others2, key=lambda e: math.hypot(e.rect.centerx - t2.rect.centerx, e.rect.centery - t2.rect.centery))
+                        t3 = min(others2, key=lambda e: math.hypot(e.rect.centerx - t2.rect.centerx, t2.rect.centery - t2.rect.centery))
                         if math.hypot(t3.rect.centerx - t2.rect.centerx, t3.rect.centery - t2.rect.centery) < 400:
                             targets.append(t3)
 
@@ -296,7 +300,10 @@ def draw_shop(surface):
     items = [
         {"id": "LIGHTNING", "name": "Lightning Strike (Auto)", "cost": COST_LIGHTNING, "desc": "Zaps closest enemy periodically."},
         {"id": "TORNADO", "name": "Wind Blast (Key: T)", "cost": COST_TORNADO, "desc": "Push enemies back with 'T'."},
-        {"id": "DRAGON", "name": "Dragon Summon (Key: R)", "cost": COST_DRAGON, "desc": "Summon Dragon to clear screen."}
+        {"id": "DRAGON", "name": "Dragon Summon (Key: R)", "cost": COST_DRAGON, "desc": "Summon Dragon to clear screen."},
+        {"id": "ARCANE_VOLLEY", "name": "Arcane Volley (Key: 2)", "cost": COST_ARCANE_VOLLEY, "desc": "Fires 5 unstable magic orbs."},
+        {"id": "VOID_LANCE", "name": "Void Lance (Key: 3)", "cost": COST_VOID_LANCE, "desc": "Piercing beam of dark energy."},
+        {"id": "FIRE_RING", "name": "Inferno Ring (Key: 4)", "cost": COST_FIRE_RING, "desc": "Massive ring of fire destruction."}
     ]
     
     mouse_pos = pygame.mouse.get_pos()
@@ -317,6 +324,9 @@ def draw_shop(surface):
                 if click:
                     TOTAL_COINS -= item["cost"]
                     UNLOCKED_ABILITIES[item["id"]] = True
+                    # Immediate unlock if playing
+                    if item["id"] in ["ARCANE_VOLLEY", "VOID_LANCE", "FIRE_RING"] and item["id"] not in wizard.unlocked_weapons:
+                        wizard.unlocked_weapons.append(item["id"])
                     pygame.time.wait(200)
         
         pygame.draw.rect(surface, color, rect, border_radius=10)
@@ -385,6 +395,7 @@ def draw_shop(surface):
 def reset_run():
     global score, current_wave, enemies_killed_in_wave, total_enemies_spawned_in_wave
     global current_biome, game_state, particles
+    global enemies, projectiles, enemy_projectiles, active_effects, spawn_timer
     
     score = 0
     current_wave = 1
@@ -394,8 +405,11 @@ def reset_run():
     
     enemies.empty()
     projectiles.empty()
+    enemy_projectiles.empty()
     all_sprites.empty()
     particles.clear()
+    active_effects.clear()
+    spawn_timer = 0
     
     wizard.__init__(100, SCREEN_HEIGHT - 50) # Reset hp/stats
     # Reset upgrade levels
@@ -409,6 +423,12 @@ def reset_run():
     
     # Apply bought upgrades (Abilities)
     wizard.abilities = UNLOCKED_ABILITIES.copy()
+    
+    # Populate unlocked weapons
+    wizard.unlocked_weapons = ["DEFAULT"]
+    if UNLOCKED_ABILITIES["ARCANE_VOLLEY"]: wizard.unlocked_weapons.append("ARCANE_VOLLEY")
+    if UNLOCKED_ABILITIES["VOID_LANCE"]: wizard.unlocked_weapons.append("VOID_LANCE")
+    if UNLOCKED_ABILITIES["FIRE_RING"]: wizard.unlocked_weapons.append("FIRE_RING")
     
     # Apply Permanent Stats from Shop
     # {"id": "PERMA_DMG", "val": 0.1, "stat": "damage_multiplier"}
@@ -427,73 +447,65 @@ def reset_run():
     game_state = "PLAYING"
 
 def spawn_enemy_logic():
-    global total_enemies_spawned_in_wave
+    global enemies, particles, projectiles, enemy_projectiles, active_effects, score, current_wave, spawn_timer, wizard, enemies_killed_in_wave
     
-    # Calculate Enemies Per Wave: Harder scaling
-    # Was (wave-1)//2. Now just wave count (linear increase)
-    enemies_this_wave = ENEMIES_PER_WAVE_BASE + int(current_wave * 2.0)
+    # BOSS WAVE LOGIC
+    if current_wave % 10 == 0:
+        # Spawn Boss ONCE per wave
+        # We need a flag to check if boss spawned.
+        # Simplest way: Check if we have spawned it yet.
+        # But spawn_enemy_logic is called repeatedly.
+        # We can check if `enemies_killed_in_wave == 0` and len(enemies) == 0.
+        # Or better: Just spawn boss and regular minions?
+        # Let's say Boss Wave = ONLY Boss + occasional minions?
+        
+        # Check if Boss exists
+        boss_exists = False
+        for e in enemies:
+            if e.enemy_type == "OGRE_KING": 
+                boss_exists = True
+                break
+        
+        if not boss_exists and enemies_killed_in_wave == 0:
+            # Spawn BOSS
+            side = random.choice([-100, SCREEN_WIDTH + 100])
+            e = Enemy(side, SCREEN_HEIGHT - 50, "OGRE_KING")
+            enemies.add(e)
+            all_sprites.add(e)
+            return # Spawned boss
+            
+        # If boss is dead (enemies_killed > 0), maybe spawn nothing or small guys?
+        # If boss is alive, maybe spawn small helpers?
+        if boss_exists and len(enemies) < 3:
+             # Spawn minion
+             pass
     
-    if total_enemies_spawned_in_wave >= enemies_this_wave: return
-
-    side = random.choice([-1, 1])
-    x = -100 if side == -1 else SCREEN_WIDTH + 100
-    
-    # Calculate Mix of Weak vs Strong
-    # Round 1: 5 weak (0 strong).
-    # Round 5: 5 weak, 2 strong.
-    # Pattern: Weak stays around 5 (or grows slowly), Strong grows.
-    
-    # Let's say Strong count = (current_wave - 1) // 2
-    strong_count = (current_wave - 1) // 2
-    # Ensure at least some weak enemies for satisfaction
-    weak_count = enemies_this_wave - strong_count
-    
-    # Determine type for this specific spawn
-    # If we haven't spawned all strongs yet... random chance based on remaining?
-    # Simplified: Spawn strongs with probability
-    prob_strong = strong_count / enemies_this_wave if enemies_this_wave > 0 else 0
-    
-    is_strong = random.random() < prob_strong
-    
-    # Determine Health Thresholds based on player power
-    player_dmg = BASE_WAND_DAMAGE * wizard.damage_multiplier
-    
-    # Difficulty Spike Multiplier (Requested: +20% at 10, +30% at 20)
-    # Let's interpret as cumulative multipliers
-    diff_mult = 1.0
-    if current_wave >= 10:
-        diff_mult *= 1.2
-    if current_wave >= 20:
-        diff_mult *= 1.3 # Cumulative with previous? "En la 20 un 30%".
-                         # If it means 30% ON TOP of 20%, it's 1.2 * 1.3 = 1.56
-                         # If it means total 30% boost from base, it's 1.3.
-                         # "Suba un 20... y luego un 30" -> Usually cumulative steps.
-    
-    # Also scale with wave count generally
-    diff_mult += (current_wave * 0.05) 
-    
-    if is_strong:
-         # Strong enemy health (Harder)
-         health = (player_dmg * 4.0) * diff_mult # Signficantly buffed from 2.2
-         enemy_type = "GOBLIN" if current_wave % 3 == 0 else "OGRE"
-         if current_wave > 5 and random.random() < 0.4: enemy_type = "TROLL"
-    else:
-         # Weak enemy health (Harder)
-         health = (player_dmg * 2.0) * diff_mult # Buffed from 1.2
-
-         enemy_type = "GOBLIN" if random.random() < 0.5 else "OGRE"
-
-    # Create Enemy
-    enemy = Enemy(x, SCREEN_HEIGHT - 50, enemy_type)
-    enemy.health = health
-    
-    # Speed Scaling
-    enemy.speed += (current_wave * 0.05)
-    if current_wave > 20: enemy.speed *= 1.2
-
-    enemies.add(enemy)
-    all_sprites.add(enemy)
-    total_enemies_spawned_in_wave += 1
+    # Regular Spawn Logic
+    if len(enemies) < 5 + current_wave: # Cap enemies
+        side = random.choice([-50, SCREEN_WIDTH + 50])
+        
+        # Probabilities
+        roll = random.random()
+        etype = "OGRE"
+        
+        # New Diverse Spawn Logic:
+        # Check rarest first? Or just probability buckets.
+        
+        if current_wave > 5 and roll < 0.15: # 15% Troll (Wave 6+)
+             etype = "TROLL"
+        elif current_wave > 2 and roll < 0.45: # 30% Archer (Wave 3+) (0.15 to 0.45) if Troll fails
+             etype = "SKELETON_ARCHER"
+        elif current_wave > 1 and roll < 0.75: # 30% Goblin (Wave 2+) (0.45 to 0.75 or 0.0 to 0.75 depending)
+             etype = "GOBLIN"
+        
+        # Default is OGRE (remaining probability)
+        # Wave 1: 100% Ogre
+        # Wave 2: ~75% Goblin, 25% Ogre (since roll < 0.75 catches most)
+        # Wave 3: ~30% Archer, ~30% Goblin, ~40% Ogre
+        
+        e = Enemy(side, SCREEN_HEIGHT - 50, etype)
+        enemies.add(e)
+        all_sprites.add(e)
 
 # Cards Logic (Same as before)
 cards = []
@@ -594,6 +606,7 @@ def draw_cards_ui(surface, events):
                 apply_card(c)
                 cards = []
                 global shop_return_target, game_state
+                global spawn_timer, enemies_killed_in_wave
                 # Next wave
                 current_wave += 1
                 enemies_killed_in_wave = 0
@@ -736,62 +749,92 @@ while running:
                 cast_lightning()
                 lightning_timer = 120 # 2 sec
             lightning_timer -= 1
+            
+        # Weapon Switching
+        for e in events:
+            if e.type == pygame.KEYDOWN:
+                if e.key == pygame.K_1: wizard.select_weapon(1)
+                if e.key == pygame.K_2: wizard.select_weapon(2)
+                if e.key == pygame.K_3: wizard.select_weapon(3)
+                if e.key == pygame.K_4: wizard.select_weapon(4)
+                    
+
 
         # Projectiles
-        projectiles.update()
-        for p in projectiles:
-            if p.rect.left > SCREEN_WIDTH or p.rect.right < 0: p.kill()
-            
-
         # Spawning
         if spawn_timer <= 0:
             spawn_enemy_logic()
             # Slower waves:
             # Base 120 (2 sec) minus wave scaling (but not too fast)
-            spawn_timer = 120 - (current_wave * 10)
+            spawn_timer = 120 - (current_wave * 2) 
             if spawn_timer < 40: spawn_timer = 40
-        spawn_timer -= 1
-        
-        # Enemies
-        hits = pygame.sprite.groupcollide(enemies, projectiles, False, False)
-        for enemy, projs in hits.items():
-            for p in projs:
-                if not hasattr(p, 'hit_list'): p.hit_list = [] # Safety
-                
-                if enemy not in p.hit_list:
-                    enemy.health -= p.damage
-                    p.hit_list.append(enemy)
-                    
-                    particles.append({'x': enemy.rect.centerx, 'y': enemy.rect.centery, 'life': 8, 'max_life': 8, 'size': 3, 'color': p.color})
-                    
-                    if p.piercing <= 0:
-                        p.kill()
-                    else:
-                        p.piercing -= 1
-                        
-            if enemy.health <= 0:
-                kill_enemy(enemy)
-        
-        # Player Collisions & Enemy Attacks
-        for e in enemies:
-            e.update(wizard.rect.centerx)
             
-            # 1. Attack Damage (Range)
-            if e.did_attack:
-                wizard.health -= e.damage
-                if wizard.health < 0: wizard.health = 0 # Clamp
+            # If Boss alive, slow down spawn a lot
+            is_boss_alive = False
+            for e in enemies:
+                if e.enemy_type == "OGRE_KING":
+                    is_boss_alive = True
+                    break
+            
+            if is_boss_alive:
+                spawn_timer = 300 # 5 sec
                 
-                # Hit feedback
-                for _ in range(10):
-                    particles.append({'x': wizard.rect.centerx, 'y': wizard.rect.centery, 'life': 15, 'max_life': 15, 'size': 5, 'color': RED})
-                
-                # Screen shake or flash?
-                s_flash = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
-                s_flash.fill((255, 0, 0, 50))
-                screen.blit(s_flash, (0,0))
-                
-                if wizard.health <= 0:
-                    game_state = "GAME_OVER"
+        spawn_timer -= 1
+
+        # Projectiles
+        projectiles.update(enemies) 
+        enemy_projectiles.update() # Ranged enemy shots
+        
+        for p in projectiles:
+            if p.rect.left > SCREEN_WIDTH or p.rect.right < 0 or p.rect.bottom < 0 or p.rect.top > SCREEN_HEIGHT:
+                 p.kill()
+
+        # Enemy Projectile Collisions
+        hits = pygame.sprite.spritecollide(wizard, enemy_projectiles, True)
+        for hit in hits:
+             wizard.health -= hit.damage
+             # Feedback
+             for _ in range(5):
+                    particles.append({'x': wizard.rect.centerx, 'y': wizard.rect.centery, 'life': 10, 'max_life': 10, 'size': 4, 'color': (200, 50, 255)})
+             if wizard.health <= 0:
+                 game_state = "GAME_OVER"
+
+        # Enemies Logic (+ Shooting)
+        # Player Collisions & Enemy Attacks
+        boss_active = None
+        
+        for e in enemies:
+            # 1. Update Enemy (Pass Player Rect for aiming)
+            new_proj = e.update(wizard.rect)
+            if new_proj:
+                enemy_projectiles.add(new_proj)
+                all_sprites.add(new_proj)
+            
+            # Track Boss for UI
+            if e.enemy_type == "OGRE_KING":
+                boss_active = e
+            
+            # 2. Attack Damage (Direct Hit / Melee)
+            # EXPLICITLY IGNORE ARCHERS here. They damage via projectiles only.
+            if e.enemy_type != "SKELETON_ARCHER":
+                if e.did_attack and e.damage > 0:
+                    # Melee Hit Logic
+                    # Check distance to be fair (don't hit from across screen if player dash away)
+                    dist_to_p = math.hypot(e.rect.centerx - wizard.rect.centerx, e.rect.centery - wizard.rect.centery)
+                    if dist_to_p < 150: # Melee Range allowance (was 150)
+                        wizard.health -= e.damage
+                        if wizard.health < 0: wizard.health = 0
+                        
+                        # Hit feedback
+                        for _ in range(10):
+                            particles.append({'x': wizard.rect.centerx, 'y': wizard.rect.centery, 'life': 15, 'max_life': 15, 'size': 5, 'color': RED})
+                        
+                        s_flash = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+                        s_flash.fill((255, 0, 0, 50))
+                        screen.blit(s_flash, (0,0))
+                        
+                        if wizard.health <= 0:
+                            game_state = "GAME_OVER"
 
             # 2. Contact Damage (If they get too close despite range)
             if e.rect.colliderect(wizard.rect):
@@ -807,27 +850,99 @@ while running:
                 if wizard.health <= 0:
                     game_state = "GAME_OVER"
         
+        # 3. Enemy Projectiles
+        # 3. Enemy Projectiles Collisions
+        # We need to update them somewhere? They are updated with projectiles.update(enemies)? 
+        # No, projectiles group is Player projectiles.
+        # enemy_projectiles is separate.
+        
+        for p in enemy_projectiles:
+            p.update() # Update position
+            if p.rect.colliderect(wizard.rect):
+                wizard.health -= p.damage
+                p.kill()
+                # Feedback
+                for _ in range(5):
+                     particles.append({'x': wizard.rect.centerx, 'y': wizard.rect.centery, 'life': 15, 'max_life': 15, 'size': 5, 'color': RED})
+                
+                # Flash screen
+                s_flash = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+                s_flash.fill((255, 0, 0, 30))
+                screen.blit(s_flash, (0,0))
+
+                if wizard.health <= 0: game_state = "GAME_OVER"
+            
+            # Remove if off screen
+            if p.rect.right < 0 or p.rect.left > SCREEN_WIDTH or p.rect.bottom < 0 or p.rect.top > SCREEN_HEIGHT:
+                 p.kill()
+        
         # Wave Check
         enemies_this_wave = ENEMIES_PER_WAVE_BASE + (current_wave - 1) // 2
+        # If Boss wave, we need to kill boss?
+        if current_wave % 10 == 0:
+            # Check if boss dead
+            # If enemies_killed_in_wave >= 1 (assuming boss is the 1)
+            # But minions might be killed.
+            # Only win wave if Boss is NOT in enemies group AND we killed at least 1 big guy?
+            # Better: If Boss spawned and is now dead.
+            # We can just check `not any(e.enemy_type == "OGRE_KING" for e in enemies)` BUT we need to ensure he spawned.
+            # Simplified: Boss wave ends when enemies_killed > enemies_this_wave AND no boss.
+            pass # Use standard count for now, but Boss is worth more points/kills?
+            
         if enemies_killed_in_wave >= enemies_this_wave:
              game_state = "CARD_SELECT"
-             # No victory condition for infinite waves, unless we want a boss every X waves
-             # maybe wave 10, 20 etc.
+             # Clear projectiles
+        # 4. Player Projectile Collisions (Damage Enemies)
+        # Using groupcollide to check all projectiles against all enemies
+        hits = pygame.sprite.groupcollide(enemies, projectiles, False, False)
+        for enemy, projs in hits.items():
+            for p in projs:
+                if not hasattr(p, 'hit_list'): p.hit_list = [] # Safety
+                
+                # Check if this projectile already hit this enemy (for piercing)
+                if enemy not in p.hit_list:
+                    enemy.health -= p.damage
+                    p.hit_list.append(enemy)
+                    
+                    # Particle Feedback
+                    col = p.color
+                    for _ in range(3):
+                        particles.append({'x': enemy.rect.centerx, 'y': enemy.rect.centery, 'life': 8, 'max_life': 8, 'size': 3, 'color': col})
+                    
+                    # Piercing Logic
+                    if p.piercing <= 0:
+                        p.kill()
+                    else:
+                        p.piercing -= 1
+                        
+            if enemy.health <= 0:
+                kill_enemy(enemy)
+
+        enemy_projectiles.empty()
 
         # 2. Drawing
         draw_background_scenery(screen, current_biome, SCREEN_WIDTH, SCREEN_HEIGHT)
         
         # Draw Entities
+        # Draw Entities
         for e in enemies:
             scale = 1.0
-            if e.rect.width > 90: scale = 1.5 # Boss scale
+            # Boss scale handled in draw()
+            # if e.rect.width > 90: scale = 1.5 
             
             # Use internal draw method which delegates
             e.draw(screen)
             
+        for ep in enemy_projectiles:
+            screen.blit(ep.image, ep.rect)
+            
         wizard.draw(screen)
         for p in projectiles:
             p.draw(screen)
+            
+        for p in enemy_projectiles:
+            pygame.draw.circle(screen, (255, 0, 0), p.rect.center, p.rect.width//2)
+            pygame.draw.circle(screen, (255, 255, 255), p.rect.center, p.rect.width//2 - 2)
             
         # Draw Particles
         for p in particles[:]:
@@ -873,7 +988,24 @@ while running:
                 draw_dragon_effect(screen, eff["x"], eff["y"], eff["life"])
 
         # UI
+        
+
         draw_health_bar(screen, 20, 20, wizard.health, wizard.max_health)
+        
+        if boss_active:
+             # BOSS BAR at Top Center
+             bw = 400
+             bh = 30
+             bx = SCREEN_WIDTH//2 - bw//2
+             by = 20
+             # Draw Boss Bar
+             pygame.draw.rect(screen, (50, 0, 0), (bx, by, bw, bh))
+             pct = max(0, boss_active.health / (OGRE_HEALTH_BASE * 15.0))
+             pygame.draw.rect(screen, (200, 0, 0), (bx, by, int(bw*pct), bh))
+             pygame.draw.rect(screen, WHITE, (bx, by, bw, bh), 2)
+             
+             bn = font.render(f"OGRE KING (Wave {current_wave})", True, WHITE)
+             screen.blit(bn, (SCREEN_WIDTH//2 - bn.get_width()//2, by - 25))
         
         info = small_font.render(f"Wave: {current_wave}", True, WHITE)
         coins_ui = small_font.render(f"Coins: {TOTAL_COINS}", True, GOLD) # Show persistent coins
@@ -890,6 +1022,93 @@ while running:
             col = GREEN if dragon_cooldown == 0 else RED
             txt = small_font.render("Dragon [R]", True, col)
             screen.blit(txt, (20, SCREEN_HEIGHT - 30))
+
+        # UI: Draw Weapon Hotbar (Moved here to draw ON TOP)
+        hotbar_x = 20
+        hotbar_y = 120
+        slot_size = 50
+        padding = 10
+        
+        # Weapon Metadata for Display
+        hotbar_slots = [
+            {"key": "1", "id": "DEFAULT", "color": (255, 200, 50)},    # Gold/Yellow
+            {"key": "2", "id": "ARCANE_VOLLEY", "color": (200, 100, 255)}, # Purple
+            {"key": "3", "id": "VOID_LANCE", "color": (50, 0, 100)},   # Dark Purple
+            {"key": "4", "id": "FIRE_RING", "color": (255, 69, 0)}     # Orange Red
+        ]
+        
+        for i, slot in enumerate(hotbar_slots):
+            # Status
+            is_unlocked = slot["id"] == "DEFAULT" or slot["id"] in wizard.unlocked_weapons
+            is_active = wizard.current_weapon == slot["id"]
+            
+            # Position
+            rx = hotbar_x + i * (slot_size + padding)
+            ry = hotbar_y
+            rect = pygame.Rect(rx, ry, slot_size, slot_size)
+            
+            # Background Color
+            if is_active:
+                bg_col = (50, 50, 70) # Highlight active bg
+                border_col = (255, 255, 255) # Bright border
+                width = 3
+            elif is_unlocked:
+                bg_col = (30, 30, 30) # Unlocked but inactive
+                border_col = (100, 100, 100)
+                width = 1
+            else:
+                bg_col = (10, 10, 10) # Locked
+                border_col = (50, 50, 50)
+                width = 1
+                
+            pygame.draw.rect(screen, bg_col, rect, border_radius=5)
+            pygame.draw.rect(screen, border_col, rect, width, border_radius=5)
+            
+            # Weapon Icon (Detailed Representation)
+            if is_unlocked:
+                center = rect.center
+                cx, cy = center
+                
+                # Base Color (Dimmed if inactive)
+                icon_col = slot["color"]
+                if not is_active:
+                    icon_col = (icon_col[0]//3, icon_col[1]//3, icon_col[2]//3)
+                
+                if slot["id"] == "DEFAULT":
+                    # Simple Spark Orb
+                    pygame.draw.circle(screen, icon_col, center, 8)
+                    if is_active:
+                        pygame.draw.circle(screen, (255, 255, 200), center, 4) # Inner glow
+                        
+                elif slot["id"] == "ARCANE_VOLLEY":
+                    # Three small orbs in local spread
+                    #  o
+                    # o o
+                    offsets = [(0, -6), (-6, 4), (6, 4)]
+                    for ox, oy in offsets:
+                        pygame.draw.circle(screen, icon_col, (cx + ox, cy + oy), 4)
+                        
+                elif slot["id"] == "VOID_LANCE":
+                    # A diagonal beam/line
+                    #  /
+                    pygame.draw.line(screen, icon_col, (cx - 10, cy + 10), (cx + 10, cy - 10), 4)
+                    if is_active:
+                        pygame.draw.line(screen, (200, 100, 255), (cx - 10, cy + 10), (cx + 10, cy - 10), 1)
+                        
+                elif slot["id"] == "FIRE_RING":
+                    # A Ring (Hollow Circle)
+                    pygame.draw.circle(screen, icon_col, center, 12, 3)
+                    if is_active:
+                         # Flames on ring?
+                         pass
+
+                # Key Number
+                key_txt = small_font.render(slot["key"], True, (200, 200, 200) if is_active else (80, 80, 80))
+                screen.blit(key_txt, (rect.right - 15, rect.bottom - 20))
+            else:
+                # Draw Lock? Or just empty dark slot
+                key_txt = small_font.render(slot["key"], True, (40, 40, 40))
+                screen.blit(key_txt, (rect.right - 15, rect.bottom - 20))
 
     elif game_state == "CARD_SELECT":
         draw_cards_ui(screen, events)
