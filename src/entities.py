@@ -180,17 +180,17 @@ class Enemy(pygame.sprite.Sprite):
         
         # Stats based on type
         if self.enemy_type == "GOBLIN":
-            self.stop_range = 60
+            self.stop_range = 80 
             self.damage = 20
-            self.attack_cooldown_max = 70 # Fast
+            self.attack_cooldown_max = 120 # Slower (2s)
         elif self.enemy_type == "TROLL":
-            self.stop_range = 90
+            self.stop_range = 120
             self.damage = 45
-            self.attack_cooldown_max = 140 # Slow
+            self.attack_cooldown_max = 240 # Very Slow (4s)
         else: # OGRE
-            self.stop_range = 75
+            self.stop_range = 100
             self.damage = 30
-            self.attack_cooldown_max = 100 # Medium
+            self.attack_cooldown_max = 180 # Slow (3s)
         
     def update(self, player_x):
         self.did_attack = False
@@ -216,8 +216,12 @@ class Enemy(pygame.sprite.Sprite):
             
             # Attack Timer
             self.attack_timer += 1
-            if self.attack_timer >= self.attack_cooldown_max:
+            
+            # Trigger damage at HALF swing (Impact point)
+            if self.attack_timer == self.attack_cooldown_max // 2:
                 self.did_attack = True
+                
+            if self.attack_timer >= self.attack_cooldown_max:
                 self.attack_timer = 0 # Reset
         
         # Gravity
@@ -230,15 +234,17 @@ class Enemy(pygame.sprite.Sprite):
 
     def draw(self, surface):
         t = pygame.time.get_ticks()
-        # Pass is_attacking to assets (we need to update assets.py first or assume kwargs)
-        # Actually assets.py functions don't take it yet. We will update them next.
-        # Let's pass it as a keyword arg or just update the signature in assets.py
+        # Calculate Phase (0.0 to 1.0)
+        phase = 0.0
+        if self.is_attacking and self.attack_cooldown_max > 0:
+            phase = self.attack_timer / self.attack_cooldown_max
+            
         if self.enemy_type == "GOBLIN":
-            draw_goblin(surface, self.rect.centerx, self.rect.bottom, self.direction > 0, tick=t, is_attacking=self.is_attacking)
+            draw_goblin(surface, self.rect.centerx, self.rect.bottom, self.direction > 0, tick=t, is_attacking=self.is_attacking, attack_phase=phase)
         elif self.enemy_type == "TROLL":
-             draw_troll(surface, self.rect.centerx, self.rect.bottom, self.direction > 0, tick=t, is_attacking=self.is_attacking)
+             draw_troll(surface, self.rect.centerx, self.rect.bottom, self.direction > 0, tick=t, is_attacking=self.is_attacking, attack_phase=phase)
         else:
-            draw_ogre(surface, self.rect.centerx, self.rect.bottom, self.direction > 0, tick=t, is_attacking=self.is_attacking)
+            draw_ogre(surface, self.rect.centerx, self.rect.bottom, self.direction > 0, tick=t, is_attacking=self.is_attacking, attack_phase=phase)
 
 class Projectile(pygame.sprite.Sprite):
     def __init__(self, x, y, facing_right, color=WHITE):

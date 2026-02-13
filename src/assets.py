@@ -142,32 +142,32 @@ def draw_scaled_wizard(surface, x, y, scale=1.0):
     surface.blit(s, rect)
 
 
-def draw_ogre(surface, x, y, facing_right, scale=1.0, tick=0, is_attacking=False):
+def draw_ogre(surface, x, y, facing_right, scale=1.0, tick=0, is_attacking=False, attack_phase=0.0):
     """Draws a Green Ogre."""
     _draw_monster_base(surface, x, y, facing_right, scale, 
                        skin_color=(100, 140, 60), 
                        outfit_color=(139, 69, 19), 
-                       weapon="CLUB", tick=tick, is_attacking=is_attacking)
+                       weapon="CLUB", tick=tick, is_attacking=is_attacking, attack_phase=attack_phase)
 
-def draw_goblin(surface, x, y, facing_right, scale=0.8, tick=0, is_attacking=False):
+def draw_goblin(surface, x, y, facing_right, scale=0.8, tick=0, is_attacking=False, attack_phase=0.0):
     """Draws a small, fast Goblin."""
     _draw_monster_base(surface, x, y, facing_right, scale, 
                        skin_color=(150, 200, 50), 
                        outfit_color=(100, 50, 50), 
                        weapon="DAGGER",
-                       is_goblin=True, tick=tick, is_attacking=is_attacking)
+                       is_goblin=True, tick=tick, is_attacking=is_attacking, attack_phase=attack_phase)
 
-def draw_troll(surface, x, y, facing_right, scale=1.3, tick=0, is_attacking=False):
+def draw_troll(surface, x, y, facing_right, scale=1.3, tick=0, is_attacking=False, attack_phase=0.0):
     """Draws a large, regenerating Troll."""
     _draw_monster_base(surface, x, y, facing_right, scale, 
                        skin_color=(100, 100, 120), 
                        outfit_color=(50, 50, 50), 
-                       weapon="ROCK", tick=tick, is_attacking=is_attacking)
+                       weapon="ROCK", tick=tick, is_attacking=is_attacking, attack_phase=attack_phase)
 
-def _draw_monster_base(surface, x, y, facing_right, scale, skin_color, outfit_color, weapon, is_goblin=False, tick=0, is_attacking=False):
+def _draw_monster_base(surface, x, y, facing_right, scale, skin_color, outfit_color, weapon, is_goblin=False, tick=0, is_attacking=False, attack_phase=0.0):
     direction = 1 if facing_right else -1
     
-    # Increase canvas size for more detail and "hulking" look
+    # Increase canvas size
     w, h = 300, 300 
     s = pygame.Surface((w, h), pygame.SRCALPHA)
     cx, cy = w//2, h - 10
@@ -181,10 +181,11 @@ def _draw_monster_base(surface, x, y, facing_right, scale, skin_color, outfit_co
         stride_len = 0
         bob_y = math.sin(tick / 200) * 2 # Breathing
         
-        # Attack Swing Animation
-        # Fast cyclic swing
-        attack_prog = (tick / 200) % 2 * math.pi
-        arm_swing = math.sin(attack_prog * 4) * 40 # Fast swing
+        # Attack Swing Animation (Driven by Phase)
+        # Phase goes 0.0 -> 1.0 over the attack duration.
+        # We want swing out to Peak at 0.5 (Impact) and Return by 1.0
+        # Sin(0..Pi) goes 0 -> 1 -> 0
+        arm_swing = math.sin(attack_phase * math.pi) * 40 
     else:
         stride_len = 12 if not is_goblin else 8
         bob_y = abs(math.sin(walk_speed)) * 5

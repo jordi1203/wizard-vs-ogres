@@ -779,6 +779,8 @@ while running:
             # 1. Attack Damage (Range)
             if e.did_attack:
                 wizard.health -= e.damage
+                if wizard.health < 0: wizard.health = 0 # Clamp
+                
                 # Hit feedback
                 for _ in range(10):
                     particles.append({'x': wizard.rect.centerx, 'y': wizard.rect.centery, 'life': 15, 'max_life': 15, 'size': 5, 'color': RED})
@@ -794,6 +796,8 @@ while running:
             # 2. Contact Damage (If they get too close despite range)
             if e.rect.colliderect(wizard.rect):
                 wizard.health -= 1 # Contact is just chip damage now
+                if wizard.health < 0: wizard.health = 0 # Clamp
+                
                 # Push player away
                 if e.rect.centerx < wizard.rect.centerx:
                     wizard.rect.x += 5
