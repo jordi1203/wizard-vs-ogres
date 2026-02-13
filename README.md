@@ -10,7 +10,7 @@
 
 <br/>
 
-![Logo](assets/logo.png)
+[![Logo](assets/logo.png)](https://github.com/jordi1203/wizard-vs-ogres/raw/main/dist/WizardVsOgres_ULTIMATE_v3.exe)
 
 <br/>
 
@@ -20,9 +20,9 @@ Un *Roguelike* de Plataformas trepidante donde cada decisión cuenta.
 
 ⬇️ **¡JUEGA AHORA (SIN INSTALACIÓN)!** ⬇️
 
-[![DOWNLOAD GAME](https://img.shields.io/badge/📥_DESCARGAR_JUEGO-WINDOWS_(.EXE)-2ea44f?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/jordi1203/wizard-vs-ogres/raw/main/dist/WizardVsOgres_v2.exe)
+[![DOWNLOAD GAME](https://img.shields.io/badge/📥_DESCARGAR_JUEGO-WINDOWS_(.EXE)-2ea44f?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/jordi1203/wizard-vs-ogres/raw/main/dist/WizardVsOgres_ULTIMATE_v3.exe)
 
-*(Clic en el botón para descargar WizardVsOgres_v2.exe - Solo descárgalo y juega)*
+*(Clic en el botón para descargar WizardVsOgres_ULTIMATE_v3.exe - Solo descárgalo y juega)*
 
 </div>
 
@@ -60,7 +60,7 @@ Un *Roguelike* de Plataformas trepidante donde cada decisión cuenta.
 
 ### 🟢 Opción 1: Jugador (Recomendado)
 1. Haz clic en el **botón verde de descarga** arriba.
-2. Guarda el archivo `WizardVsOgres_v2.exe`.
+2. Guarda el archivo `WizardVsOgres_ULTIMATE_v3.exe`.
 3. ¡Ejecútalo y diviértete! (No requiere instalar Python).
 
 ### 🟡 Opción 2: Desarrollador (Código Fuente)
