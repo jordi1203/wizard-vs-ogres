@@ -1,6 +1,6 @@
 # Wizard vs Ogres: Ultimate Edition
 
-[![Wizard Game Logo](assets/logo.png)](https://github.com/jordi1203/wizard-vs-ogres/raw/main/dist/WizardVsOgres.exe)
+[![Wizard Game Logo](assets/logo.png)](https://github.com/jordi1203/wizard-vs-ogres/raw/main/dist/WizardVsOgres_v2.exe)
 
 Un juego de plataformas/roguelite trepidante y lleno de acción donde juegas como un poderoso Mago defendiendo los reinos místicos contra hordas interminables de Ogros, Trolls y Goblins.
 
