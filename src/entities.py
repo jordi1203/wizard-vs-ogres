@@ -174,15 +174,27 @@ class Enemy(pygame.sprite.Sprite):
         self.rect.midbottom = (x, y)
         self.vel_y = 0
         self.direction = -1 
+        self.stop_range = 70 # Buffer distance
+        self.is_attacking = False
         
     def update(self, player_x):
         # Tracking AI
-        if self.rect.centerx > player_x:
+        dist = self.rect.centerx - player_x
+        abs_dist = abs(dist)
+        
+        # Face player
+        if dist > 0:
             self.direction = -1
         else:
             self.direction = 1
             
-        self.rect.x += self.speed * self.direction
+        # Move only if outside stop range
+        if abs_dist > self.stop_range:
+            self.rect.x += self.speed * self.direction
+            self.is_attacking = False
+        else:
+            # Stop and Attack
+            self.is_attacking = True
         
         # Gravity
         self.vel_y += GRAVITY
@@ -194,12 +206,15 @@ class Enemy(pygame.sprite.Sprite):
 
     def draw(self, surface):
         t = pygame.time.get_ticks()
+        # Pass is_attacking to assets (we need to update assets.py first or assume kwargs)
+        # Actually assets.py functions don't take it yet. We will update them next.
+        # Let's pass it as a keyword arg or just update the signature in assets.py
         if self.enemy_type == "GOBLIN":
-            draw_goblin(surface, self.rect.centerx, self.rect.bottom, self.direction > 0, tick=t)
+            draw_goblin(surface, self.rect.centerx, self.rect.bottom, self.direction > 0, tick=t, is_attacking=self.is_attacking)
         elif self.enemy_type == "TROLL":
-             draw_troll(surface, self.rect.centerx, self.rect.bottom, self.direction > 0, tick=t)
+             draw_troll(surface, self.rect.centerx, self.rect.bottom, self.direction > 0, tick=t, is_attacking=self.is_attacking)
         else:
-            draw_ogre(surface, self.rect.centerx, self.rect.bottom, self.direction > 0, tick=t)
+            draw_ogre(surface, self.rect.centerx, self.rect.bottom, self.direction > 0, tick=t, is_attacking=self.is_attacking)
 
 class Projectile(pygame.sprite.Sprite):
     def __init__(self, x, y, facing_right, color=WHITE):

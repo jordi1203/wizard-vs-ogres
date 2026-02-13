@@ -142,29 +142,29 @@ def draw_scaled_wizard(surface, x, y, scale=1.0):
     surface.blit(s, rect)
 
 
-def draw_ogre(surface, x, y, facing_right, scale=1.0, tick=0):
+def draw_ogre(surface, x, y, facing_right, scale=1.0, tick=0, is_attacking=False):
     """Draws a Green Ogre."""
     _draw_monster_base(surface, x, y, facing_right, scale, 
                        skin_color=(100, 140, 60), 
                        outfit_color=(139, 69, 19), 
-                       weapon="CLUB", tick=tick)
+                       weapon="CLUB", tick=tick, is_attacking=is_attacking)
 
-def draw_goblin(surface, x, y, facing_right, scale=0.8, tick=0):
+def draw_goblin(surface, x, y, facing_right, scale=0.8, tick=0, is_attacking=False):
     """Draws a small, fast Goblin."""
     _draw_monster_base(surface, x, y, facing_right, scale, 
                        skin_color=(150, 200, 50), 
                        outfit_color=(100, 50, 50), 
                        weapon="DAGGER",
-                       is_goblin=True, tick=tick)
+                       is_goblin=True, tick=tick, is_attacking=is_attacking)
 
-def draw_troll(surface, x, y, facing_right, scale=1.3, tick=0):
+def draw_troll(surface, x, y, facing_right, scale=1.3, tick=0, is_attacking=False):
     """Draws a large, regenerating Troll."""
     _draw_monster_base(surface, x, y, facing_right, scale, 
                        skin_color=(100, 100, 120), 
                        outfit_color=(50, 50, 50), 
-                       weapon="ROCK", tick=tick)
+                       weapon="ROCK", tick=tick, is_attacking=is_attacking)
 
-def _draw_monster_base(surface, x, y, facing_right, scale, skin_color, outfit_color, weapon, is_goblin=False, tick=0):
+def _draw_monster_base(surface, x, y, facing_right, scale, skin_color, outfit_color, weapon, is_goblin=False, tick=0, is_attacking=False):
     direction = 1 if facing_right else -1
     
     # Increase canvas size for more detail and "hulking" look
@@ -175,14 +175,24 @@ def _draw_monster_base(surface, x, y, facing_right, scale, skin_color, outfit_co
     # --- ANIMATION CALCULATIONS ---
     # Walk Cycle: Sin wave for legs, Abs(Sin) for bounce
     walk_speed = tick / 150 # Speed of stride
-    stride_len = 12 if not is_goblin else 8
+    
+    if is_attacking:
+        walk_speed = 0 # Plant feet
+        stride_len = 0
+        bob_y = math.sin(tick / 200) * 2 # Breathing
+        
+        # Attack Swing Animation
+        # Fast cyclic swing
+        attack_prog = (tick / 200) % 2 * math.pi
+        arm_swing = math.sin(attack_prog * 4) * 40 # Fast swing
+    else:
+        stride_len = 12 if not is_goblin else 8
+        bob_y = abs(math.sin(walk_speed)) * 5
+        arm_swing = math.sin(walk_speed * 2) * 5 # Casual swing
     
     # Leg offsets (Counter-phase)
     leg_l_off = math.sin(walk_speed) * stride_len
-    leg_r_off = math.sin(walk_speed + math.pi) * stride_len
-    
-    # Body bob (Bounce up and down)
-    bob_y = abs(math.sin(walk_speed)) * 5
+    leg_r_off = 0 if is_attacking else math.sin(walk_speed + math.pi) * stride_len
     
     # Adjust Y base with bob
     cy -= bob_y
@@ -317,10 +327,13 @@ def _draw_monster_base(surface, x, y, facing_right, scale, skin_color, outfit_co
     arm_start_x = cx + shoulder_w//2 - 5 * direction
     arm_start_y = body_y_top + 10
     
-    # Hand pos (Animated slightly with walk)
-    hand_bob = math.sin(walk_speed * 2) * 2
-    hand_x = arm_start_x + (40 * direction)
-    hand_y = arm_start_y + 35 + hand_bob
+    # Hand pos (Animated slightly with walk or attack)
+    if is_attacking:
+        hand_x = arm_start_x + (60 * direction) # Reach forward
+        hand_y = arm_start_y + 35 + arm_swing # Swing up/down
+    else:
+        hand_x = arm_start_x + (40 * direction)
+        hand_y = arm_start_y + 35 + arm_swing # Casual sway
     
     # Bicep/Forearm (Two segments for muscle look)
     # Upper
