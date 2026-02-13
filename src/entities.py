@@ -174,10 +174,27 @@ class Enemy(pygame.sprite.Sprite):
         self.rect.midbottom = (x, y)
         self.vel_y = 0
         self.direction = -1 
-        self.stop_range = 70 # Buffer distance
         self.is_attacking = False
+        self.did_attack = False
+        self.attack_timer = 0
+        
+        # Stats based on type
+        if self.enemy_type == "GOBLIN":
+            self.stop_range = 60
+            self.damage = 20
+            self.attack_cooldown_max = 70 # Fast
+        elif self.enemy_type == "TROLL":
+            self.stop_range = 90
+            self.damage = 45
+            self.attack_cooldown_max = 140 # Slow
+        else: # OGRE
+            self.stop_range = 75
+            self.damage = 30
+            self.attack_cooldown_max = 100 # Medium
         
     def update(self, player_x):
+        self.did_attack = False
+        
         # Tracking AI
         dist = self.rect.centerx - player_x
         abs_dist = abs(dist)
@@ -192,9 +209,16 @@ class Enemy(pygame.sprite.Sprite):
         if abs_dist > self.stop_range:
             self.rect.x += self.speed * self.direction
             self.is_attacking = False
+            self.attack_timer = 0 # Reset attack build-up if moving
         else:
             # Stop and Attack
             self.is_attacking = True
+            
+            # Attack Timer
+            self.attack_timer += 1
+            if self.attack_timer >= self.attack_cooldown_max:
+                self.did_attack = True
+                self.attack_timer = 0 # Reset
         
         # Gravity
         self.vel_y += GRAVITY

@@ -598,10 +598,6 @@ def draw_cards_ui(surface, events):
                 current_wave += 1
                 enemies_killed_in_wave = 0
                 total_enemies_spawned_in_wave = 0
-                # Next wave
-                current_wave += 1
-                enemies_killed_in_wave = 0
-                total_enemies_spawned_in_wave = 0
                 if current_wave > 2: current_biome = "ICE"
                 if current_wave > 4: current_biome = "VOLCANO"
                 
@@ -776,11 +772,34 @@ while running:
             if enemy.health <= 0:
                 kill_enemy(enemy)
         
-        # Player Collisions
+        # Player Collisions & Enemy Attacks
         for e in enemies:
             e.update(wizard.rect.centerx)
+            
+            # 1. Attack Damage (Range)
+            if e.did_attack:
+                wizard.health -= e.damage
+                # Hit feedback
+                for _ in range(10):
+                    particles.append({'x': wizard.rect.centerx, 'y': wizard.rect.centery, 'life': 15, 'max_life': 15, 'size': 5, 'color': RED})
+                
+                # Screen shake or flash?
+                s_flash = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+                s_flash.fill((255, 0, 0, 50))
+                screen.blit(s_flash, (0,0))
+                
+                if wizard.health <= 0:
+                    game_state = "GAME_OVER"
+
+            # 2. Contact Damage (If they get too close despite range)
             if e.rect.colliderect(wizard.rect):
-                wizard.health -= 1
+                wizard.health -= 1 # Contact is just chip damage now
+                # Push player away
+                if e.rect.centerx < wizard.rect.centerx:
+                    wizard.rect.x += 5
+                else:
+                    wizard.rect.x -= 5
+                    
                 if wizard.health <= 0:
                     game_state = "GAME_OVER"
         
