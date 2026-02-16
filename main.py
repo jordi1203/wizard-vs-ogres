@@ -1,11 +1,11 @@
-
 import pygame
 import sys
 import random
 import math
+import json
 from src.config import *
 from src.assets import *
-from src.entities import Wizard, Enemy, Projectile, EnemyProjectile
+from src.entities import Wizard, Enemy, Projectile, EnemyProjectile, DragonBoss
 
 # Initialize Pygame
 pygame.init()
@@ -22,6 +22,8 @@ shop_font = pygame.font.SysFont("Arial", 28, bold=True)
 # Game State
 # MENU, PLAYING, SHOP, CARD_SELECT, GAME_OVER, VICTORY
 game_state = "MENU"
+# GAME_MODE: "STORY" or "INFINITE"
+GAME_MODE = "STORY" 
 current_biome = "FOREST"
 current_wave = 1
 enemies_killed_in_wave = 0
@@ -55,7 +57,10 @@ active_effects = [] # For Tornado, Dragon visuals
 # Or: Play -> Get Coins -> Die/Win -> Main Menu -> Shop.
 # Let's go with: Coins are persistent globally. Skills bought are permanent for the user profile.
 
-TOTAL_COINS = 999999
+TOTAL_COINS = 0
+CURRENT_XP = 0
+CURRENT_LEVEL = 1
+XP_TO_NEXT_LEVEL = 100
 UNLOCKED_ABILITIES = { 
     "LIGHTNING": False, "TORNADO": False, "DRAGON": False,
     "ARCANE_VOLLEY": False, "VOID_LANCE": False, "FIRE_RING": False
@@ -65,13 +70,79 @@ shop_scroll_y = 0
 shop_return_target = "MENU" # Tracks where to go after closing shop
 gray = (100, 100, 100) # Defined gray here used in draw_shop
 
+SAVE_FILE = "save_game.json"
+
 def save_data():
-    pass # In real app, save to file
+    global TOTAL_COINS, UNLOCKED_ABILITIES, SHOP_UPGRADES_STATE
+    data = {
+        "coins": TOTAL_COINS,
+        "xp": CURRENT_XP,
+        "level": CURRENT_LEVEL,
+        "abilities": UNLOCKED_ABILITIES,
+        "upgrades": SHOP_UPGRADES_STATE
+    }
+    try:
+        with open(SAVE_FILE, "w") as f:
+            json.dump(data, f)
+    except Exception as e:
+        print(f"Error saving data: {e}")
 
 def load_data():
-    pass
+    global TOTAL_COINS, UNLOCKED_ABILITIES, SHOP_UPGRADES_STATE
+    try:
+        with open(SAVE_FILE, "r") as f:
+            data = json.load(f)
+            TOTAL_COINS = data.get("coins", 0)
+            CURRENT_XP = data.get("xp", 0)
+            CURRENT_LEVEL = data.get("level", 1)
+            # Recalculate xp needed?
+            XP_TO_NEXT_LEVEL = 100 * (1.2 ** (CURRENT_LEVEL - 1))
+            
+            CURRENT_XP = data.get("xp", 0)
+            CURRENT_LEVEL = data.get("level", 1)
+            # Recalculate xp needed?
+            XP_TO_NEXT_LEVEL = 100 * (1.2 ** (CURRENT_LEVEL - 1))
+            
+            saved_abilities = data.get("abilities", {})
+            # Update existing dict to keep keys
+            for k, v in saved_abilities.items():
+                if k in UNLOCKED_ABILITIES:
+                    UNLOCKED_ABILITIES[k] = v
+            SHOP_UPGRADES_STATE = data.get("upgrades", {})
+    except FileNotFoundError:
+        pass # No save file yet
+    except Exception as e:
+        print(f"Error loading data: {e}")
+        
+# Load immediately on import/run
+load_data()
 
-# --- VISUAL EFFECTS ---
+def gain_xp(amount):
+    global CURRENT_XP, CURRENT_LEVEL, XP_TO_NEXT_LEVEL, UNLOCKED_ABILITIES, wizard
+    CURRENT_XP += amount
+    
+    while CURRENT_XP >= XP_TO_NEXT_LEVEL:
+        CURRENT_XP -= XP_TO_NEXT_LEVEL
+        CURRENT_LEVEL += 1
+        # Recalculate
+        XP_TO_NEXT_LEVEL = int(100 * (1.2 ** (CURRENT_LEVEL - 1)))
+        
+        # Level Up Rewards (Unlock Abilities)
+        if CURRENT_LEVEL >= 3 and not UNLOCKED_ABILITIES["LIGHTNING"]:
+            UNLOCKED_ABILITIES["LIGHTNING"] = True
+        if CURRENT_LEVEL >= 5 and not UNLOCKED_ABILITIES["TORNADO"]:
+            UNLOCKED_ABILITIES["TORNADO"] = True
+        if CURRENT_LEVEL >= 8 and not UNLOCKED_ABILITIES["ARCANE_VOLLEY"]:
+             UNLOCKED_ABILITIES["ARCANE_VOLLEY"] = True
+             if "ARCANE_VOLLEY" not in wizard.unlocked_weapons: wizard.unlocked_weapons.append("ARCANE_VOLLEY")
+        if CURRENT_LEVEL >= 12 and not UNLOCKED_ABILITIES["VOID_LANCE"]:
+             UNLOCKED_ABILITIES["VOID_LANCE"] = True
+             if "VOID_LANCE" not in wizard.unlocked_weapons: wizard.unlocked_weapons.append("VOID_LANCE")
+        if CURRENT_LEVEL >= 15 and not UNLOCKED_ABILITIES["FIRE_RING"]:
+             UNLOCKED_ABILITIES["FIRE_RING"] = True
+             if "FIRE_RING" not in wizard.unlocked_weapons: wizard.unlocked_weapons.append("FIRE_RING")
+        
+        save_data()
 # (Effects are now imported from src.assets)
 
 def cast_lightning():
@@ -150,9 +221,41 @@ def cast_dragon():
     # Visual
     active_effects.append({"type": "DRAGON", "x": SCREEN_WIDTH//2, "y": SCREEN_HEIGHT//2, "life": 120})
 
+
+MISSIONS = [
+    {"id": "KILL_OGRES", "desc": "Slay 5 Ogres", "target": 5, "current": 0, "type": "KILL_ENEMY", "etype": "OGRE", "reward_xp": 100},
+    {"id": "KILL_ARCHERS", "desc": "Slay 3 Archers", "target": 3, "current": 0, "type": "KILL_ENEMY", "etype": "SKELETON_ARCHER", "reward_xp": 150},
+    {"id": "SURVIVE_WAVE", "desc": "Reach Wave 5", "target": 5, "current": 0, "type": "REACH_WAVE", "reward_xp": 300}
+]
+
+def check_mission_progress(event_type, **kwargs):
+    global MISSIONS
+    for m in MISSIONS:
+        if m["current"] >= m["target"]: continue # Already done? Or remove?
+        
+        if m["type"] == event_type:
+            if m["type"] == "KILL_ENEMY":
+                if kwargs.get("etype") == m["etype"]:
+                    m["current"] += 1
+            elif m["type"] == "REACH_WAVE":
+                m["current"] = kwargs.get("wave")
+            
+                if m["id"] == "KILL_OGRES" and m["type"] == "KILL_ENEMY":
+                     # This logic is duplicate of kill_enemy for now.
+                     pass 
+
+
 def kill_enemy(enemy):
-    global score, enemies_killed_in_wave, TOTAL_COINS
+    global score, enemies_killed_in_wave, TOTAL_COINS, game_state
     if not enemy.alive(): return # Already dead
+    
+    # Victory Check (Dragon Boss)
+    if enemy.enemy_type == "DRAGON_BOSS":
+        game_state = "VICTORY"
+        UNLOCKED_ABILITIES["DRAGON"] = True
+        # Bonus Coins
+        TOTAL_COINS += 5000
+        save_data()
     
     enemy.kill()
     enemies_killed_in_wave += 1
@@ -161,7 +264,22 @@ def kill_enemy(enemy):
     # Coins
     is_boss = enemy.rect.width > 100
     coin_val = BOSS_COIN_VALUE if is_boss else COIN_VALUE
+    if enemy.enemy_type == "DRAGON_BOSS": coin_val = 1000
+    
     TOTAL_COINS += coin_val
+    gain_xp(coin_val // 2) # XP is related to coins/difficulty
+    
+    # Check missions
+    for m in MISSIONS:
+        if m["type"] == "KILL_ENEMY" and m["etype"] == enemy.enemy_type:
+             m["current"] += 1
+             if m["current"] >= m["target"]:
+                 gain_xp(m["reward_xp"])
+                 # Difficulty Up
+                 m["current"] = 0
+                 m["target"] += 5
+                 m["reward_xp"] += 50
+                 save_data()
     
     # Particles
     for _ in range(15):
@@ -234,7 +352,8 @@ def draw_menu(surface):
     # 4. Menu Options (Right Side)
     mouse_pos = pygame.mouse.get_pos()
     menu_opts = [
-        {"text": "PLAY GAME", "key": "ENTER", "action": "START"},
+        {"text": "STORY MODE", "key": "1", "action": "STORY"},
+        {"text": "INFINITE MODE", "key": "2", "action": "INFINITE"},
         {"text": "ITEM SHOP", "key": "S", "action": "SHOP"},
         {"text": "EXIT", "key": "Q", "action": "QUIT"}
     ]
@@ -275,14 +394,14 @@ def draw_menu(surface):
     c_txt = small_font.render(f"GOLD: {TOTAL_COINS}", True, GOLD)
     surface.blit(c_txt, (20, bar_y + 8))
     
-    ver = small_font.render("v2.2 (Forest)", True, GRAY)
-    surface.blit(ver, (SCREEN_WIDTH - 120, bar_y + 8))
+    ver = small_font.render("v2.3 (Story Update)", True, GRAY)
+    surface.blit(ver, (SCREEN_WIDTH - 180, bar_y + 8))
 
 def draw_shop(surface):
     global TOTAL_COINS
     surface.fill((20, 20, 30))
     
-    title = font.render("MAGIC SHOP", True, MAGENTA)
+    title = font.render(f"MAGIC SHOP", True, MAGENTA)
     coins_txt = font.render(f"Your Coins: {TOTAL_COINS}", True, GOLD)
     
     exit_label = "Press [ESC] to Return"
@@ -327,6 +446,7 @@ def draw_shop(surface):
                     # Immediate unlock if playing
                     if item["id"] in ["ARCANE_VOLLEY", "VOID_LANCE", "FIRE_RING"] and item["id"] not in wizard.unlocked_weapons:
                         wizard.unlocked_weapons.append(item["id"])
+                    save_data()
                     pygame.time.wait(200)
         
         pygame.draw.rect(surface, color, rect, border_radius=10)
@@ -360,6 +480,7 @@ def draw_shop(surface):
                 if click:
                     TOTAL_COINS -= cost
                     SHOP_UPGRADES_STATE[item["id"]] = lvl + 1
+                    save_data()
                     pygame.time.wait(200)
     
         pygame.draw.rect(surface, color, rect, border_radius=10)
@@ -392,10 +513,12 @@ def draw_shop(surface):
 
 # --- GAME LOGIC HELPERS ---
 
-def reset_run():
+def reset_run(mode=None):
     global score, current_wave, enemies_killed_in_wave, total_enemies_spawned_in_wave
-    global current_biome, game_state, particles
+    global current_biome, game_state, particles, GAME_MODE
     global enemies, projectiles, enemy_projectiles, active_effects, spawn_timer
+    
+    if mode: GAME_MODE = mode
     
     score = 0
     current_wave = 1
@@ -410,6 +533,8 @@ def reset_run():
     particles.clear()
     active_effects.clear()
     spawn_timer = 0
+    global boss_intro_timer
+    boss_intro_timer = 0
     
     wizard.__init__(100, SCREEN_HEIGHT - 50) # Reset hp/stats
     # Reset upgrade levels
@@ -449,63 +574,99 @@ def reset_run():
 def spawn_enemy_logic():
     global enemies, particles, projectiles, enemy_projectiles, active_effects, score, current_wave, spawn_timer, wizard, enemies_killed_in_wave
     
-    # BOSS WAVE LOGIC
-    if current_wave % 10 == 0:
-        # Spawn Boss ONCE per wave
-        # We need a flag to check if boss spawned.
-        # Simplest way: Check if we have spawned it yet.
-        # But spawn_enemy_logic is called repeatedly.
-        # We can check if `enemies_killed_in_wave == 0` and len(enemies) == 0.
-        # Or better: Just spawn boss and regular minions?
-        # Let's say Boss Wave = ONLY Boss + occasional minions?
-        
-        # Check if Boss exists
-        boss_exists = False
-        for e in enemies:
-            if e.enemy_type == "OGRE_KING": 
-                boss_exists = True
-                break
-        
-        if not boss_exists and enemies_killed_in_wave == 0:
-            # Spawn BOSS
-            side = random.choice([-100, SCREEN_WIDTH + 100])
-            e = Enemy(side, SCREEN_HEIGHT - 50, "OGRE_KING")
+    # --- STORY MODE LOGIC ---
+    if GAME_MODE == "STORY":
+        # Wave 10: FINAL BOSS
+        if current_wave == 10:
+             boss_exists = False
+             for e in enemies:
+                 if e.enemy_type == "DRAGON_BOSS": 
+                     boss_exists = True
+                     break
+             
+             if not boss_exists and enemies_killed_in_wave == 0:
+                 # Trigger Cinematic Entrance instead of direct spawn
+                 global game_state, boss_intro_timer
+                 game_state = "BOSS_INTRO"
+                 boss_intro_timer = 0
+                 return
+             return # Only Boss in Wave 10
+             
+        # Regular Waves (1-9)
+        # Cap enemies
+        cap = 4 + current_wave
+        if len(enemies) < cap:
+            side = random.choice([-50, SCREEN_WIDTH + 50])
+            roll = random.random()
+            etype = "OGRE"
+            
+            # Biome-specific spawns
+            if current_biome == "ICE": # Waves 4-6
+                if roll < 0.3: etype = "TROLL"
+                elif roll < 0.6: etype = "GOBLIN"
+                else: etype = "OGRE"
+            elif current_biome == "VOLCANO": # Waves 7-9
+                if roll < 0.2: etype = "TROLL"
+                elif roll < 0.5: etype = "SKELETON_ARCHER"
+                elif roll < 0.8: etype = "GOBLIN"
+                else: etype = "OGRE"
+            else: # FOREST (Waves 1-3)
+                if roll < 0.3: etype = "GOBLIN"
+                else: etype = "OGRE"
+            
+            e = Enemy(side, SCREEN_HEIGHT - 50, etype)
+            
+            # Story Mode Harder Scaling
+            if GAME_MODE == "STORY":
+                 e.health *= 1.5 # 50% more HP
+                 e.damage *= 1.2 # 20% more damage
+                 if current_wave >= 7: # Volcano Hard
+                     e.speed += 0.5 
+            
             enemies.add(e)
             all_sprites.add(e)
-            return # Spawned boss
+
+    # --- INFINITE MODE LOGIC ---
+    else:
+        # Endless waves, scaling difficulty
+        # Boss every 10 waves (Ogre King or Dragon?)
+        # Let's keep Ogre King for infinite mode bosses for now, or Dragon at 50?
+        if current_wave % 10 == 0:
+            boss_exists = False
+            for e in enemies:
+                if e.enemy_type == "OGRE_KING": 
+                    boss_exists = True
+                    break
             
-        # If boss is dead (enemies_killed > 0), maybe spawn nothing or small guys?
-        # If boss is alive, maybe spawn small helpers?
-        if boss_exists and len(enemies) < 3:
-             # Spawn minion
-             pass
-    
-    # Regular Spawn Logic
-    if len(enemies) < 5 + current_wave: # Cap enemies
-        side = random.choice([-50, SCREEN_WIDTH + 50])
+            if not boss_exists and enemies_killed_in_wave == 0:
+                side = random.choice([-100, SCREEN_WIDTH + 100])
+                e = Enemy(side, SCREEN_HEIGHT - 50, "OGRE_KING")
+                enemies.add(e)
+                all_sprites.add(e)
+                return
         
-        # Probabilities
-        roll = random.random()
-        etype = "OGRE"
-        
-        # New Diverse Spawn Logic:
-        # Check rarest first? Or just probability buckets.
-        
-        if current_wave > 5 and roll < 0.15: # 15% Troll (Wave 6+)
-             etype = "TROLL"
-        elif current_wave > 2 and roll < 0.45: # 30% Archer (Wave 3+) (0.15 to 0.45) if Troll fails
-             etype = "SKELETON_ARCHER"
-        elif current_wave > 1 and roll < 0.75: # 30% Goblin (Wave 2+) (0.45 to 0.75 or 0.0 to 0.75 depending)
-             etype = "GOBLIN"
-        
-        # Default is OGRE (remaining probability)
-        # Wave 1: 100% Ogre
-        # Wave 2: ~75% Goblin, 25% Ogre (since roll < 0.75 catches most)
-        # Wave 3: ~30% Archer, ~30% Goblin, ~40% Ogre
-        
-        e = Enemy(side, SCREEN_HEIGHT - 50, etype)
-        enemies.add(e)
-        all_sprites.add(e)
+        # Regular Spawn
+        cap = 5 + int(current_wave * 1.5) # Scale faster
+        if len(enemies) < cap:
+            side = random.choice([-50, SCREEN_WIDTH + 50])
+            roll = random.random()
+            etype = "OGRE"
+            
+            # Progressive difficulty
+            troll_chance = min(0.4, current_wave * 0.02)
+            archer_chance = min(0.4, current_wave * 0.02)
+            goblin_chance = 0.3
+            
+            if current_wave > 5 and roll < troll_chance: 
+                 etype = "TROLL"
+            elif current_wave > 2 and roll < (troll_chance + archer_chance):
+                 etype = "SKELETON_ARCHER"
+            elif roll < (troll_chance + archer_chance + goblin_chance): # Remaining pool
+                 etype = "GOBLIN"
+            
+            e = Enemy(side, SCREEN_HEIGHT - 50, etype)
+            enemies.add(e)
+            all_sprites.add(e)
 
 # Cards Logic (Same as before)
 cards = []
@@ -573,9 +734,9 @@ def apply_card(card):
                 wizard.multishot += 1
             elif t == "PIERCING":
                 wizard.piercing += 1
-
+                
 def draw_cards_ui(surface, events):
-    global current_wave, enemies_killed_in_wave, total_enemies_spawned_in_wave, current_biome, game_state, cards
+    global current_wave, enemies_killed_in_wave, total_enemies_spawned_in_wave, current_biome, game_state, cards, GAME_MODE
     
     # Overlay
     s = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
@@ -605,16 +766,24 @@ def draw_cards_ui(surface, events):
             if clicked:
                 apply_card(c)
                 cards = []
-                global shop_return_target, game_state
-                global spawn_timer, enemies_killed_in_wave
+                global shop_return_target, spawn_timer
+                
                 # Next wave
                 current_wave += 1
                 enemies_killed_in_wave = 0
                 total_enemies_spawned_in_wave = 0
-                if current_wave > 2: current_biome = "ICE"
-                if current_wave > 4: current_biome = "VOLCANO"
+                
+                # BIOME TRANSITION LOGIC
+                if GAME_MODE == "STORY":
+                    if current_wave <= 3: current_biome = "FOREST"
+                    elif current_wave <= 6: current_biome = "ICE"
+                    elif current_wave <= 10: current_biome = "VOLCANO"
+                else:
+                    if current_wave > 2: current_biome = "ICE"
+                    if current_wave > 4: current_biome = "VOLCANO"
                 
                 game_state = "PLAYING"
+                scale = 1.0 # Reset scale? No, wizard scale is static?
                 
                 pygame.time.wait(200)
                 return
@@ -637,6 +806,7 @@ spawn_timer = 0
 lightning_timer = 0 # For auto lightning
 tornado_cooldown = 0
 dragon_cooldown = 0
+boss_intro_timer = 0
 
 running = True
 while running:
@@ -663,25 +833,32 @@ while running:
                 click = True
         
         # Reconstruct rects to check collisions
-        # 0: PLAY
-        rect_play = pygame.Rect(ui_center_x - btn_w//2, start_y, btn_w, btn_h)
-        if rect_play.collidepoint(mouse_pos) and click:
-            reset_run()
+        # 0: STORY
+        rect_story = pygame.Rect(ui_center_x - btn_w//2, start_y, btn_w, btn_h)
+        if rect_story.collidepoint(mouse_pos) and click:
+            reset_run(mode="STORY")
             
-        # 1: SHOP
-        rect_shop = pygame.Rect(ui_center_x - btn_w//2, start_y + (btn_h + spacing), btn_w, btn_h)
+        # 1: INFINITE
+        rect_inf = pygame.Rect(ui_center_x - btn_w//2, start_y + (btn_h + spacing), btn_w, btn_h)
+        if rect_inf.collidepoint(mouse_pos) and click:
+            reset_run(mode="INFINITE")
+            
+        # 2: SHOP
+        rect_shop = pygame.Rect(ui_center_x - btn_w//2, start_y + 2*(btn_h + spacing), btn_w, btn_h)
         if rect_shop.collidepoint(mouse_pos) and click:
             shop_return_target = "MENU"
             game_state = "SHOP"
             
-        # 2: EXIT
-        rect_exit = pygame.Rect(ui_center_x - btn_w//2, start_y + 2*(btn_h + spacing), btn_w, btn_h)
+        # 3: EXIT
+        rect_exit = pygame.Rect(ui_center_x - btn_w//2, start_y + 3*(btn_h + spacing), btn_w, btn_h)
         if rect_exit.collidepoint(mouse_pos) and click:
             running = False
 
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_RETURN]:
-            reset_run()
+        if keys[pygame.K_1]:
+            reset_run(mode="STORY")
+        if keys[pygame.K_2]:
+            reset_run(mode="INFINITE")
         if keys[pygame.K_s]:
             shop_return_target = "MENU"
             game_state = "SHOP"
@@ -726,7 +903,7 @@ while running:
         
         # Shooting
         if keys[pygame.K_SPACE] or pygame.mouse.get_pressed()[0]:
-            projs = wizard.shoot() # Now returns list
+            projs = wizard.shoot(target_pos=pygame.mouse.get_pos()) # Mouse aim
             if projs: 
                 projectiles.add(projs)
                 all_sprites.add(projs)
@@ -811,7 +988,7 @@ while running:
                 all_sprites.add(new_proj)
             
             # Track Boss for UI
-            if e.enemy_type == "OGRE_KING":
+            if e.enemy_type in ["OGRE_KING", "DRAGON_BOSS"]:
                 boss_active = e
             
             # 2. Attack Damage (Direct Hit / Melee)
@@ -1003,26 +1180,69 @@ while running:
 
         draw_health_bar(screen, 20, 20, wizard.health, wizard.max_health)
         
+
+
+        # --- NEW HUD ---
+        # 1. Main Stats Logic
+        # (Already have wizard.health)
+        
+        # 2. XP Bar (Top Left - Under Health)
+        pygame.draw.rect(screen, (30, 30, 30), (20, 50, 250, 15), border_radius=4)
+        if XP_TO_NEXT_LEVEL > 0:
+            xp_ratio = min(1.0, CURRENT_XP / XP_TO_NEXT_LEVEL)
+        else:
+            xp_ratio = 1.0
+        pygame.draw.rect(screen, (0, 150, 255), (20, 50, int(250 * xp_ratio), 15), border_radius=4)
+        pygame.draw.rect(screen, (100, 100, 100), (20, 50, 250, 15), 1, border_radius=4)
+        
+        xp_txt = small_font.render(f"LVL {CURRENT_LEVEL}", True, WHITE)
+        screen.blit(xp_txt, (20, 70))
+        
+        # 3. Wave & Coins
+        info = small_font.render(f"Wave: {current_wave}", True, WHITE)
+        coins_ui = small_font.render(f"Coins: {TOTAL_COINS}", True, GOLD)
+        screen.blit(info, (SCREEN_WIDTH - 150, 20))
+        screen.blit(coins_ui, (SCREEN_WIDTH - 150, 50))
+        
+        # 4. Missions
+        mission_y = 100
+        m_title = shop_font.render("MISSIONS", True, (200, 200, 255))
+        screen.blit(m_title, (SCREEN_WIDTH - 220, mission_y))
+        mission_y += 30
+        
+        for m in MISSIONS:
+            if m["current"] >= m["target"]: col = GREEN
+            else: col = WHITE
+            mtxt = small_font.render(f"{m['desc']}: {m['current']}/{m['target']}", True, col)
+            screen.blit(mtxt, (SCREEN_WIDTH - 220, mission_y))
+            mission_y += 25
+            
         if boss_active:
              # BOSS BAR at Top Center
-             bw = 400
+             bw = 500
              bh = 30
              bx = SCREEN_WIDTH//2 - bw//2
              by = 20
+             
+             # Name and Max Health selection
+             if boss_active.enemy_type == "DRAGON_BOSS":
+                 name_txt = "ANCIENT DRAGON"
+                 max_hp = DRAGON_BOSS_HEALTH
+                 bar_col = (255, 100, 0) # Orange
+             else:
+                 name_txt = f"OGRE KING (Wave {current_wave})"
+                 max_hp = OGRE_HEALTH_BASE * 15.0
+                 bar_col = (200, 0, 0) # Red
+                 
              # Draw Boss Bar
              pygame.draw.rect(screen, (50, 0, 0), (bx, by, bw, bh))
-             pct = max(0, boss_active.health / (OGRE_HEALTH_BASE * 15.0))
-             pygame.draw.rect(screen, (200, 0, 0), (bx, by, int(bw*pct), bh))
+             pct = max(0, boss_active.health / max_hp)
+             pygame.draw.rect(screen, bar_col, (bx, by, int(bw*pct), bh))
              pygame.draw.rect(screen, WHITE, (bx, by, bw, bh), 2)
              
-             bn = font.render(f"OGRE KING (Wave {current_wave})", True, WHITE)
+             
+             bn = font.render(name_txt, True, WHITE)
              screen.blit(bn, (SCREEN_WIDTH//2 - bn.get_width()//2, by - 25))
-        
-        info = small_font.render(f"Wave: {current_wave}", True, WHITE)
-        coins_ui = small_font.render(f"Coins: {TOTAL_COINS}", True, GOLD) # Show persistent coins
-        
-        screen.blit(info, (SCREEN_WIDTH - 120, 20))
-        screen.blit(coins_ui, (SCREEN_WIDTH - 150, 60))
         
         # Cooldowns HUD
         if UNLOCKED_ABILITIES["TORNADO"]:
@@ -1121,6 +1341,29 @@ while running:
                 key_txt = small_font.render(slot["key"], True, (40, 40, 40))
                 screen.blit(key_txt, (rect.right - 15, rect.bottom - 20))
 
+    elif game_state == "BOSS_INTRO":
+        # Cinematic Sequence
+        boss_intro_timer += 1
+        progress = min(1.0, boss_intro_timer / 300.0) # 5 seconds intro
+        
+        # Draw game world behind (frozen or not?)
+        draw_background_scenery(screen, current_biome, SCREEN_WIDTH, SCREEN_HEIGHT)
+        wizard.draw(screen)
+        
+        # Draw Cinematic
+        draw_dragon_cinematic_entrance(screen, progress)
+        
+        if boss_intro_timer >= 300:
+            # Spawn Boss and Start Fight
+            game_state = "PLAYING"
+            # Spawn Boss
+            e = DragonBoss(SCREEN_WIDTH//2, SCREEN_HEIGHT - 300)
+            enemies.add(e)
+            all_sprites.add(e)
+            
+            # Sound effect placeholder
+            # pygame.mixer.Sound("roar.wav").play()
+            
     elif game_state == "CARD_SELECT":
         draw_cards_ui(screen, events)
         

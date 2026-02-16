@@ -1904,3 +1904,195 @@ def draw_dragon_effect(surface, x, y, life_counter):
                         (wave_x, hy), (SCREEN_WIDTH + wave_x, hy), 2)
     surface.blit(heat_s, (0, 0))
 
+
+def draw_dragon_boss(surface, x, y, facing_right, scale=1.0, tick=0, is_attacking=False, attack_phase=0.0):
+    """Draws a massive, animated Dragon Boss entity."""
+    
+    direction = 1 if facing_right else -1
+    
+    # Canvas setup
+    w, h = int(500 * scale), int(500 * scale)
+    s = pygame.Surface((w, h), pygame.SRCALPHA)
+    cx, cy = w//2, h//2
+    
+    # Animation Parameters
+    hover_y = math.sin(tick / 250) * (20 * scale)
+    wing_phase = math.sin(tick / 150)
+    breath_pulse = (math.sin(tick / 100) + 1.5) * 0.5 # 0.5 to 1.25
+    
+    # Position adjustments
+    body_x = cx
+    body_y = cy + hover_y
+    
+    # 1. WINGS (Behind Body)
+    wing_span = 180 * scale
+    wing_h = (100 + wing_phase * 40) * scale
+    wing_root_y = body_y - 40 * scale
+    
+    wing_col_outer = (50, 10, 10)
+    wing_col_inner = (80, 30, 10)
+    
+    # Draw far wing first
+    far_side = -direction
+    wx_far = body_x + (far_side * 20 * scale)
+    wt_x_far = wx_far + (far_side * wing_span)
+    wt_y_far = wing_root_y - wing_h
+    
+    # Wing polygon points
+    wing_pts_far = [
+        (wx_far, wing_root_y),
+        (wt_x_far, wt_y_far),
+        (wt_x_far - (far_side * 40 * scale), wt_y_far + 120 * scale),
+        (wx_far, wing_root_y + 60 * scale)
+    ]
+    pygame.draw.polygon(s, wing_col_outer, wing_pts_far)
+    pygame.draw.polygon(s, wing_col_inner, [wing_pts_far[0], wing_pts_far[1], wing_pts_far[2]]) # Membrane
+    
+    # 2. TAIL
+    tail_pts = []
+    for i in range(12):
+        tx = body_x - (i * 15 * direction * scale) - (math.sin(tick/200 + i*0.4) * 10 * scale)
+        ty = body_y + (i * 8 * scale) + (math.cos(tick/200 + i*0.4) * 5 * scale)
+        size = (40 - i * 3) * scale
+        pygame.draw.circle(s, (70, 20, 20), (int(tx), int(ty)), int(size))
+        
+    # 3. BODY (Main Mass)
+    body_rect = pygame.Rect(0, 0, 100 * scale, 140 * scale)
+    body_rect.center = (body_x, body_y)
+    pygame.draw.ellipse(s, (90, 20, 20), body_rect)
+    
+    # Scales on belly
+    pygame.draw.ellipse(s, (110, 40, 20), (body_rect.centerx - 30*scale, body_rect.top + 20*scale, 60*scale, 100*scale))
+
+    # 4. NEAR WING
+    near_side = direction
+    wx_near = body_x + (near_side * 10 * scale)
+    wt_x_near = wx_near + (near_side * wing_span)
+    wt_y_near = wing_root_y - wing_h
+    
+    wing_pts_near = [
+        (wx_near, wing_root_y),
+        (wt_x_near, wt_y_near),
+        (wt_x_near - (near_side * 40 * scale), wt_y_near + 120 * scale),
+        (wx_near, wing_root_y + 60 * scale)
+    ]
+    pygame.draw.polygon(s, wing_col_outer, wing_pts_near)
+    pygame.draw.polygon(s, wing_col_inner, [wing_pts_near[0], wing_pts_near[1], wing_pts_near[2]])
+
+    # 5. NECK & HEAD
+    neck_len = 70 * scale
+    head_pos_x = body_x + (50 * direction * scale)
+    head_pos_y = body_y - neck_len
+    
+    # Neck curve
+    pygame.draw.line(s, (90, 20, 20), (body_x, body_y - 40*scale), (head_pos_x, head_pos_y), int(40*scale))
+    
+    # Head Shape
+    head_size = 50 * scale
+    pygame.draw.circle(s, (100, 30, 30), (int(head_pos_x), int(head_pos_y)), int(head_size))
+    
+    # Snout
+    snout_len = 60 * scale
+    snout_x = head_pos_x + (direction * snout_len)
+    snout_y = head_pos_y + (10 * scale)
+    
+    pygame.draw.polygon(s, (100, 30, 30), [
+        (head_pos_x, head_pos_y - 20*scale),
+        (head_pos_x, head_pos_y + 20*scale),
+        (snout_x, snout_y + 15*scale),
+        (snout_x, snout_y - 15*scale)
+    ])
+    
+    # Eye
+    eye_x = head_pos_x + (15 * direction * scale)
+    eye_y = head_pos_y - 10 * scale
+    pygame.draw.circle(s, (255, 200, 0), (int(eye_x), int(eye_y)), int(8*scale))
+    # Pupil (Cat eye slit)
+    pygame.draw.rect(s, (0,0,0), (int(eye_x)-1, int(eye_y)-5, 2, 10))
+    
+    # Horns
+    horn_base_x = head_pos_x - (10 * direction * scale)
+    horn_base_y = head_pos_y - 25 * scale
+    horn_tip_x = horn_base_x - (40 * direction * scale)
+    horn_tip_y = horn_base_y - (50 * scale)
+    pygame.draw.line(s, (200, 200, 180), (horn_base_x, horn_base_y), (horn_tip_x, horn_tip_y), int(6*scale))
+    
+    # ATTACK EFFECT (Fire Breath Charging/Releasing)
+    if is_attacking:
+        # Glow in throat
+        pygame.draw.circle(s, (255, 100, 0, 150), (int(head_pos_x + 20*direction*scale), int(head_pos_y)), int(20*scale*breath_pulse))
+        
+        if attack_phase > 0.3: # Release Phase
+            # Flamethrower
+            fire_len = 250 * scale
+            fx = snout_x
+            fy = snout_y
+            
+            # Draw multiple transparent flame layers
+            for i in range(5):
+                alpha = 200 - i * 40
+                width = 20 + i * 15
+                col = (255, 100 + i*30, 0)
+                
+                # End point with spread
+                end_x = fx + (fire_len * direction)
+                end_y = fy + (i * 10 * scale)
+                
+                pygame.draw.line(s, (*col, alpha), (fx, fy), (end_x, end_y), int(width*scale))
+                
+                # Particles at end
+                pygame.draw.circle(s, (*col, alpha), (int(end_x), int(end_y)), int(width*scale))
+
+
+    surface.blit(s, s.get_rect(center=(x, y)))
+
+def draw_dragon_cinematic_entrance(surface, progress):
+    """
+    Renders an EPIC intro sequence for the Dragon Boss.
+    progress goes from 0.0 (start) to 1.0 (ready to fight).
+    """
+    w, h = surface.get_size()
+    cx, cy = w//2, h//2
+    t = pygame.time.get_ticks()
+    
+    # 1. Darken Sky (Weather Change)
+    darkness = int(min(200, progress * 200)) # Fade to dark storm
+    s_dark = pygame.Surface((w, h), pygame.SRCALPHA)
+    s_dark.fill((20, 10, 30, darkness))
+    surface.blit(s_dark, (0,0))
+    
+    # 2. Lightning Flashes (Dramatic Strobe)
+    if 0.3 < progress < 0.8:
+        if random.random() < 0.1: # Flash
+            s_flash = pygame.Surface((w, h), pygame.SRCALPHA)
+            s_flash.fill((200, 220, 255, random.randint(50, 150)))
+            surface.blit(s_flash, (0,0))
+            
+    # 3. Dragon Descent
+    # Starts high up (y = -300) and descends to fight pos (cy - 100)
+    start_y = -400
+    end_y = cy - 200
+    
+    # Non-linear ease out
+    eased_prog = 1 - (1 - progress) ** 3  # Cubic ease out
+    dragon_y = start_y + (end_y - start_y) * eased_prog
+    
+    # Scale grows as he gets closer (simulating flight down)
+    current_scale = 0.5 + 0.5 * eased_prog # 0.5 -> 1.0
+    
+    # Draw Dragon
+    draw_dragon_boss(surface, cx, dragon_y, facing_right=False, scale=current_scale * 1.8, tick=t, is_attacking=False)
+
+    # 4. Roar Shockwave (at end of entrance)
+    if progress > 0.8:
+        wave_prog = (progress - 0.8) / 0.2
+        wave_r = int(wave_prog * 800)
+        pygame.draw.circle(surface, (255, 255, 255), (cx, int(dragon_y)), wave_r, 10)
+        
+    # Text
+    if progress > 0.5:
+        # Large menacing text
+        font_big = pygame.font.SysFont("Verdana", 80, bold=True)
+        txt = font_big.render("THE ANCIENT DRAGON", True, (255, 50, 0))
+        rect = txt.get_rect(center=(cx, h - 150))
+        surface.blit(txt, rect)

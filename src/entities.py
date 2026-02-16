@@ -129,7 +129,7 @@ class Wizard(pygame.sprite.Sprite):
             return True
         return False
 
-    def shoot(self, target_enemies=None):
+    def shoot(self, target_pos=None):
         if self.cast_cooldown == 0:
             self.is_casting = True
             base_cooldown = 20
@@ -141,86 +141,112 @@ class Wizard(pygame.sprite.Sprite):
             
             self.cast_cooldown = max(5, base_cooldown - self.attack_speed_boost)
             
-            offset_x = 30 if self.facing_right else -30
-            offset_y = -40
-            start_x = self.rect.centerx + offset_x
-            start_y_base = self.rect.bottom + offset_y
+            start_x = self.rect.centerx
+            start_y_base = self.rect.centery - 20
+            
+            # Aim Logic
+            aim_angle = 0
+            if target_pos:
+                mx, my = target_pos
+                dx = mx - start_x
+                dy = my - start_y_base
+                aim_angle = math.atan2(dy, dx)
+                self.facing_right = dx > 0 # Update facing
+            else:
+                aim_angle = 0 if self.facing_right else 3.14159
             
             projectiles = []
             damage = BASE_WAND_DAMAGE * self.damage_multiplier
             color = WAND_COLORS[min(self.wand_level, len(WAND_COLORS)-1)]
             
+            # Common Projectile Velocity function
+            def create_proj(speed, angle, p_type, col):
+                p = Projectile(start_x, start_y_base, 1 if math.cos(angle)>0 else -1, col, p_type)
+                p.vel_x = math.cos(angle) * speed
+                p.vel_y = math.sin(angle) * speed
+                return p
+
             if self.current_weapon == "DEFAULT":
                 # Standard Wand logic
                 scale_factor = 1.0 + (self.multishot - 1) * 0.3
-                p = Projectile(start_x, start_y_base, self.facing_right, color, "DEFAULT")
+                p = create_proj(PROJECTILE_SPEED, aim_angle, "DEFAULT", color)
                 multishot_dmg_mult = 1.0 + (self.multishot - 1) * 0.4
                 p.damage = damage * multishot_dmg_mult
                 p.scale = scale_factor
                 p.piercing = self.piercing
                 projectiles.append(p)
+                projectiles.append(p)
 
             elif self.current_weapon == "ARCANE_VOLLEY":
                 # Fires spread of orb-like projectiles (Purple/Cyan mix)
-                # "Volley" feels better than Shotgun
                 for i in range(5):
                     angle_offset = random.uniform(-0.4, 0.4) 
-                    p = Projectile(start_x, start_y_base, self.facing_right, (200, 100, 255), "ARCANE_VOLLEY") # Purple
+                    final_angle = aim_angle + angle_offset
+                    
+                    p = create_proj(PROJECTILE_SPEED, final_angle, "ARCANE_VOLLEY", (200, 100, 255))
                     p.damage = damage * 0.5 
                     p.scale = 0.7
                     p.life = 50 
-                    
-                    speed = PROJECTILE_SPEED
-                    base_angle = 0 if self.facing_right else 3.14159
-                    final_angle = base_angle + angle_offset
-                    
-                    p.vel_x = math.cos(final_angle) * speed
-                    p.vel_y = math.sin(final_angle) * speed
                     projectiles.append(p)
 
             elif self.current_weapon == "VOID_LANCE":
-                # Fast, dark beam
-                p = Projectile(start_x, start_y_base, self.facing_right, (50, 0, 100), "VOID_LANCE") # Dark Purple
+                p = create_proj(PROJECTILE_SPEED * 2.5, aim_angle, "VOID_LANCE", (50, 0, 100))
                 p.damage = damage * 2.5
                 p.scale = 1.2
                 p.piercing = 999
-                p.vel_x *= 2.5 
                 p.life = 100
                 projectiles.append(p)
 
             elif self.current_weapon == "FIRE_RING":
                  # Huge ring of fire that moves slowly but destroys everything
-                 p = Projectile(start_x, start_y_base, self.facing_right, (255, 69, 0), "FIRE_RING") # Orange Red
-                 p.damage = damage * 3.0 # High Single tick damage, hits multiple times? 
-                 # Usually piercing allows multi-hit on same enemy if not careful.
-                 # Our logic hits once per enemy per projectile.
+                 p = create_proj(PROJECTILE_SPEED * 0.6, aim_angle, "FIRE_RING", (255, 69, 0))
+                 p.damage = damage * 3.0
                  p.piercing = 999
-                 p.scale = 3.0 # Big!
-                 p.vel_x *= 0.6 # Slow moving wall of doom
+                 p.scale = 3.0 
                  p.life = 150
                  projectiles.append(p)
 
             return projectiles
-        return None
+        return []
 
 class EnemyProjectile(pygame.sprite.Sprite):
-    def __init__(self, x, y, target_x, target_y, is_boss=False):
+    def __init__(self, x, y, target_x, target_y, is_boss=False, p_type="DEFAULT"):
         super().__init__()
-        size = 20 if is_boss else 10
-        self.image = pygame.Surface((size, size), pygame.SRCALPHA)
-        col = (255, 0, 0) if not is_boss else (100, 0, 100) # Red or Purple
-        pygame.draw.circle(self.image, col, (size//2, size//2), size//2)
+        self.p_type = p_type
+        
+        if p_type == "ARROW":
+             size = 20 # Longer logic?
+             self.image = pygame.Surface((30, 5), pygame.SRCALPHA)
+             self.image.fill((200, 200, 200)) # Grey Arrow Shaft
+             # Add tip
+             pygame.draw.circle(self.image, (150, 150, 150), (30, 2), 4)
+             self.speed = 15
+             self.damage = 30 # User requested 30 damage
+        else:
+             size = 20 if is_boss else 10
+             self.image = pygame.Surface((size, size), pygame.SRCALPHA)
+             col = (255, 0, 0) if not is_boss else (100, 0, 100) # Red or Purple
+             pygame.draw.circle(self.image, col, (size//2, size//2), size//2)
+             self.speed = 12 if is_boss else 10 # Faster arrows (was 8)
+             self.damage = 25 if is_boss else 15
         
         self.rect = self.image.get_rect()
         self.rect.center = (x, y)
-        self.speed = 12 if is_boss else 10 # Faster arrows (was 8)
-        self.damage = 25 if is_boss else 15
         
         dx = target_x - x
         dy = target_y - y
         dist = math.hypot(dx, dy)
         if dist == 0: dist = 1
         
+        # Rotation for Arrow
+        if p_type == "ARROW":
+             # Original image is horizontal pointing right? Yes 30x5.
+             # atan2(dy, dx) gives angle in radians. positive y is Down in Pygame.
+             # degrees(-angle)
+             angle = math.degrees(math.atan2(-dy, dx))
+             self.image = pygame.transform.rotate(self.image, angle)
+             self.rect = self.image.get_rect(center=(x, y))
+             
         self.vel_x = (dx / dist) * self.speed
         self.vel_y = (dy / dist) * self.speed
         
@@ -290,7 +316,7 @@ class Enemy(pygame.sprite.Sprite):
         # Attack Logic & Cooldowns
         if self.enemy_type == "SKELETON_ARCHER":
             self.stop_range = 500 # Ranged
-            self.damage = 0 # NO MELEE DAMAGE
+            self.damage = 20 # NO MELEE DAMAGE
             self.attack_cooldown_max = 100 # Faster fire rate 
         elif self.enemy_type == "OGRE_KING":
             self.stop_range = 100
@@ -347,7 +373,7 @@ class Enemy(pygame.sprite.Sprite):
             if self.attack_timer == self.attack_cooldown_max // 2:
                 if self.enemy_type == "SKELETON_ARCHER":
                     # Fire Arrow
-                    new_projectile = EnemyProjectile(self.rect.centerx, self.rect.centery, player_x, player_y, is_boss=False)
+                    new_projectile = EnemyProjectile(self.rect.centerx, self.rect.centery, player_x, player_y, is_boss=False, p_type="ARROW")
                 elif self.enemy_type == "OGRE_KING": 
                     # Boss Smash & Projectile
                     self.did_attack = True # Melee smash
@@ -386,8 +412,159 @@ class Enemy(pygame.sprite.Sprite):
              draw_skeleton(surface, self.rect.centerx, self.rect.bottom, self.direction > 0, scale=1.0, tick=t, is_attacking=self.is_attacking, attack_phase=phase)
         elif self.enemy_type == "OGRE_KING":
              draw_ogre(surface, self.rect.centerx, self.rect.bottom, self.direction > 0, scale=2.5, tick=t, is_attacking=self.is_attacking, attack_phase=phase)
+
+        elif self.enemy_type == "DRAGON_BOSS":
+             draw_dragon_boss(surface, self.rect.centerx, self.rect.centery, self.direction > 0, scale=1.0, tick=t, is_attacking=self.is_attacking, attack_phase=phase)
         else:
             draw_ogre(surface, self.rect.centerx, self.rect.bottom, self.direction > 0, tick=t, is_attacking=self.is_attacking, attack_phase=phase)
+
+class DragonBoss(Enemy):
+    def __init__(self, x, y):
+        super().__init__(x, y, "DRAGON_BOSS")
+        # Override stats
+        self.health = DRAGON_BOSS_HEALTH 
+        self.max_health = DRAGON_BOSS_HEALTH
+        self.speed = DRAGON_BOSS_SPEED
+        self.size = DRAGON_BOSS_SIZE
+        
+        # Hitbox setup
+        self.image = pygame.Surface((self.size, self.size), pygame.SRCALPHA)
+        self.rect = self.image.get_rect()
+        self.rect.center = (x, y)
+        
+        # Flight logic
+        self.target_y = y
+        self.hover_offset = 0
+        self.attack_cooldown_max = 100 # Fast attacks
+        self.stop_range = 350 
+        
+        # State Machine: FLYING -> LANDING -> GROUNDED -> TAKEOFF -> FLYING
+        self.state = "FLYING"
+        self.state_timer = 0
+        self.ground_y = 750 # Lower to touch ground (Screen 900, size 300, half is 150 -> bottom 900)
+        
+    def update(self, player_rect):
+        self.did_attack = False
+        new_projectile_list = []
+        
+        player_x = player_rect.centerx
+        player_y = player_rect.centery
+        
+        # Tracking X
+        dist_x = self.rect.centerx - player_x
+        
+        # Face player
+        self.direction = -1 if dist_x > 0 else 1
+            
+        # State Logic
+        self.state_timer += 1
+        
+        if self.state == "FLYING":
+            target_y = player_y - 250 # Fly high
+            if target_y < 100: target_y = 100
+            
+            # Transition to Land after 10s
+            if self.state_timer > 600: 
+                self.state = "LANDING"
+                self.state_timer = 0
+                
+        elif self.state == "LANDING":
+            target_y = self.ground_y
+            # Check if reached ground
+            if abs(self.rect.centery - target_y) < 20:
+                self.state = "GROUNDED"
+                self.state_timer = 0
+                
+        elif self.state == "GROUNDED":
+            target_y = self.ground_y
+            # Stay for 5s (300 frames)
+            if self.state_timer > 300:
+                self.state = "TAKEOFF"
+                self.state_timer = 0
+                
+        elif self.state == "TAKEOFF":
+            target_y = player_y - 250
+            if abs(self.rect.centery - target_y) < 50:
+                 self.state = "FLYING"
+                 self.state_timer = 0
+        
+        # Smooth Y movement
+        dy = target_y - self.rect.centery
+        self.rect.centery += dy * 0.05
+        
+        # Move X (Keep distance)
+        abs_dist = abs(dist_x)
+        wanted_dist = self.stop_range
+        if self.state == "GROUNDED": wanted_dist = 200 # Get closer on ground
+        
+        if abs_dist > wanted_dist:
+            self.rect.x += self.speed * self.direction
+            self.is_attacking = False
+            self.attack_timer = 0 # Reset attack if moving
+        elif abs_dist < wanted_dist - 100:
+             # Too close, back up (only if flying)
+             if self.state == "FLYING":
+                 self.rect.x -= self.speed * self.direction * 0.5
+        else:
+            # In range, Attack!
+            self.is_attacking = True
+            self.attack_timer += 1
+            
+            # Fire Attack Logic
+            # Phase 0.0 to 1.0 (Attack Cooldown)
+            
+            # Select Attack Type randomly?
+            # 1. Triple Fireball (Standard)
+            # 2. Fire Breath (Stream down to ground) - NEW
+            
+            if self.attack_timer == 1: # Decide attack at start of cycle
+                 self.current_attack = "TRIPLE" if random.random() > 0.4 else "BREATH"
+            
+            if self.current_attack == "TRIPLE":
+                if self.attack_timer == self.attack_cooldown_max // 2:
+                    self.did_attack = True
+                    # Center shot
+                    p1 = EnemyProjectile(self.rect.centerx, self.rect.centery + 50, player_x, player_y, is_boss=True)
+                    p1.image.fill((255, 100, 0)) 
+                    new_projectile_list.append(p1)
+                    # Angled Up
+                    p2 = EnemyProjectile(self.rect.centerx, self.rect.centery + 50, player_x, player_y - 150, is_boss=True)
+                    new_projectile_list.append(p2)
+                    # Angled Down
+                    p3 = EnemyProjectile(self.rect.centerx, self.rect.centery + 50, player_x, player_y + 150, is_boss=True)
+                    new_projectile_list.append(p3)
+            
+            elif self.current_attack == "BREATH":
+                # Stream of fire for 30 frames
+                if self.attack_timer > 30 and self.attack_timer < 60:
+                    if self.attack_timer % 3 == 0:
+                        # Target ground below player (or just player)
+                        # Spread slightly
+                        tx = player_x + random.randint(-50, 50)
+                        ty = player_y + random.randint(-20, 20)
+                        
+                        p = EnemyProjectile(self.rect.centerx, self.rect.centery + 40, tx, ty, is_boss=True)
+                        p.image.fill((255, 50, 0)) # Redder
+                        p.speed = 15 # Fast breath
+                        p.size = 15
+                        # Recalculate vel for new speed
+                        dx = tx - p.rect.centerx
+                        dy = ty - p.rect.centery
+                        dist = math.hypot(dx, dy)
+                        if dist == 0: dist = 1
+                        p.vel_x = (dx/dist)*p.speed
+                        p.vel_y = (dy/dist)*p.speed
+                        
+                        new_projectile_list.append(p)
+
+            if self.attack_timer >= self.attack_cooldown_max:
+                self.attack_timer = 0
+        
+        # Apply Logic for Boss (No Gravity in same sense)
+        if self.rect.top < 0: self.rect.top = 0
+        if self.rect.bottom > SCREEN_HEIGHT - 50: self.rect.bottom = SCREEN_HEIGHT - 50
+        
+        return new_projectile_list
 
 class Projectile(pygame.sprite.Sprite):
     def __init__(self, x, y, facing_right, color=WHITE, type="DEFAULT"):
